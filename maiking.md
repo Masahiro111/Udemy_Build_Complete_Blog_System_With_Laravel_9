@@ -34,7 +34,7 @@ npm run dev
 php artisan migrate
 ```
 
-### 認証後の設定
+### トップページの設定
 
 `RouteServiceProvider.php` を開き以下のように編集
 
@@ -83,4 +83,12 @@ Route::get('/', function () {
 - <link rel="stylesheet" href="css/style.css">
 
 + <link rel="stylesheet" href="{{ asset('blog_template/css/style.css') }}">
+```
+
+画像の URI も同様に `blog_template/` を追加してパスが通るようにする。 
+
+```diff
+- <a href="#" class="blog-img" style="background-image: url(images/blog-1.jpg);"></a>
+
++ <a href="#" class="blog-img" style="background-image: url(blog_template/images/blog-1.jpg);"></a>
 ```

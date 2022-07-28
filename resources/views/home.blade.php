@@ -100,7 +100,7 @@
                     <div class="row">
                         <div class="col-md-8">
                             <div class="block-21 d-flex animate-box">
-                                <a href="#" class="blog-img" style="background-image: url(images/blog-1.jpg);"></a>
+                                <a href="#" class="blog-img" style="background-image: url(blog_template/images/blog-1.jpg);"></a>
                                 <div class="text">
                                     <h3 class="heading"><a href="#">Even the all-powerful Pointing has no control about the blind texts</a></h3>
                                     <p>ven the all-powerful Pointing has no control about the blind texts it is an almost</p>
@@ -113,7 +113,7 @@
                             </div>
 
                             <div class="block-21 d-flex animate-box">
-                                <a href="#" class="blog-img" style="background-image: url(images/blog-2.jpg);"></a>
+                                <a href="#" class="blog-img" style="background-image: url(blog_template/images/blog-2.jpg);"></a>
                                 <div class="text">
                                     <h3 class="heading"><a href="#">Even the all-powerful Pointing has no control about the blind texts</a></h3>
                                     <p>ven the all-powerful Pointing has no control about the blind texts it is an almost</p>
@@ -126,7 +126,7 @@
                             </div>
 
                             <div class="block-21 d-flex animate-box">
-                                <a href="#" class="blog-img" style="background-image: url(images/blog-3.jpg);"></a>
+                                <a href="#" class="blog-img" style="background-image: url(blog_template/images/blog-3.jpg);"></a>
                                 <div class="text">
                                     <h3 class="heading"><a href="#">Even the all-powerful Pointing has no control about the blind texts</a></h3>
                                     <p>ven the all-powerful Pointing has no control about the blind texts it is an almost</p>
@@ -139,7 +139,7 @@
                             </div>
 
                             <div class="block-21 d-flex animate-box">
-                                <a href="#" class="blog-img" style="background-image: url(images/blog-4.jpg);"></a>
+                                <a href="#" class="blog-img" style="background-image: url(blog_template/images/blog-4.jpg);"></a>
                                 <div class="text">
                                     <h3 class="heading"><a href="#">Even the all-powerful Pointing has no control about the blind texts</a></h3>
                                     <p>ven the all-powerful Pointing has no control about the blind texts it is an almost</p>
@@ -152,7 +152,7 @@
                             </div>
 
                             <div class="block-21 d-flex animate-box">
-                                <a href="#" class="blog-img" style="background-image: url(images/blog-5.jpg);"></a>
+                                <a href="#" class="blog-img" style="background-image: url(blog_template/images/blog-5.jpg);"></a>
                                 <div class="text">
                                     <h3 class="heading"><a href="#">Even the all-powerful Pointing has no control about the blind texts</a></h3>
                                     <p>ven the all-powerful Pointing has no control about the blind texts it is an almost</p>
@@ -165,7 +165,7 @@
                             </div>
 
                             <div class="block-21 d-flex animate-box">
-                                <a href="#" class="blog-img" style="background-image: url(images/blog-6.jpg);"></a>
+                                <a href="#" class="blog-img" style="background-image: url(blog_template/images/blog-6.jpg);"></a>
                                 <div class="text">
                                     <h3 class="heading"><a href="#">Even the all-powerful Pointing has no control about the blind texts</a></h3>
                                     <p>ven the all-powerful Pointing has no control about the blind texts it is an almost</p>
@@ -199,7 +199,7 @@
                                 <div class="side">
                                     <h3 class="sidebar-heading">Recent Blog</h3>
                                     <div class="f-blog">
-                                        <a href="blog.html" class="blog-img" style="background-image: url(images/blog-1.jpg);">
+                                        <a href="blog.html" class="blog-img" style="background-image: url(blog_template/images/blog-1.jpg);">
                                         </a>
                                         <div class="desc">
                                             <p class="admin"><span>18 April 2018</span></p>
@@ -208,7 +208,7 @@
                                         </div>
                                     </div>
                                     <div class="f-blog">
-                                        <a href="blog.html" class="blog-img" style="background-image: url(images/blog-2.jpg);">
+                                        <a href="blog.html" class="blog-img" style="background-image: url(blog_template/images/blog-2.jpg);">
                                         </a>
                                         <div class="desc">
                                             <p class="admin"><span>18 April 2018</span></p>
@@ -217,7 +217,7 @@
                                         </div>
                                     </div>
                                     <div class="f-blog">
-                                        <a href="blog.html" class="blog-img" style="background-image: url(images/blog-3.jpg);">
+                                        <a href="blog.html" class="blog-img" style="background-image: url(blog_template/images/blog-3.jpg);">
                                         </a>
                                         <div class="desc">
                                             <p class="admin"><span>18 April 2018</span></p>
@@ -245,7 +245,7 @@
                 </div>
             </div>
 
-            <div id="colorlib-subscribe" class="subs-img" style="background-image: url(images/img_bg_2.jpg);" data-stellar-background-ratio="0.5">
+            <div id="colorlib-subscribe" class="subs-img" style="background-image: url(blog_template/images/img_bg_2.jpg);" data-stellar-background-ratio="0.5">
                 <div class="overlay"></div>
                 <div class="container">
                     <div class="row">
@@ -332,7 +332,7 @@
                         <div class="col-md-3 colorlib-widget">
                             <h4>Recent Post</h4>
                             <div class="f-blog">
-                                <a href="blog.html" class="blog-img" style="background-image: url(images/blog-1.jpg);">
+                                <a href="blog.html" class="blog-img" style="background-image: url(blog_template/images/blog-1.jpg);">
                                 </a>
                                 <div class="desc">
                                     <h2><a href="blog.html">Creating Mobile Apps</a></h2>
@@ -340,7 +340,7 @@
                                 </div>
                             </div>
                             <div class="f-blog">
-                                <a href="blog.html" class="blog-img" style="background-image: url(images/blog-2.jpg);">
+                                <a href="blog.html" class="blog-img" style="background-image: url(blog_template/images/blog-2.jpg);">
                                 </a>
                                 <div class="desc">
                                     <h2><a href="blog.html">Creating Mobile Apps</a></h2>
