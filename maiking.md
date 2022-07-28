@@ -75,3 +75,12 @@ Route::get('/', function () {
 
 `public\blog_template\index.html` 内のコードをコピーして、`resources\views\home.blade.php` に貼り付け。
 
+このままでは、ページを表示された際にＣＳＳやＪＳのパスが通らないので `{{ asset('...') }}` という構文を追加してパスを編集する。
+
+< 例 >
+
+```diff
+- <link rel="stylesheet" href="css/style.css">
+
++ <link rel="stylesheet" href="{{ asset('blog_template/css/style.css') }}">
+```
