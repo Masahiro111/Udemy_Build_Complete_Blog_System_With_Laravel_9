@@ -16,10 +16,10 @@ cd project_name
 
 ## Laravel Breeze のインストール
 
-Laravel での認証機能パッケージ Laravel　Breeze のインストールを行います。以下のコマンドでインストールします。
+Laravel での認証機能パッケージ Laravel Breeze のインストールを行います。以下のコマンドでインストールします。
 
 ```
-composer require laravel /breeze
+composer require laravel/breeze
 ```
 
 インストールしたら、スカフォールドと NPM 関連のインストールをコマンドで実行します。また、マイグレーションも同時に実行します。
@@ -138,25 +138,7 @@ Route::get('/', function () {
 
         <!-- jQuery -->
         <script src="{{ asset('blog_template/js/jquery.min.js') }}"></script>
-        <!-- jQuery Easing -->
-        <script src="{{ asset('blog_template/js/jquery.easing.1.3.js') }}"></script>
-        <!-- Bootstrap -->
-        <script src="{{ asset('blog_template/js/bootstrap.min.js') }}"></script>
-        <!-- Waypoints -->
-        <script src="{{ asset('blog_template/js/jquery.waypoints.min.js') }}"></script>
-        <!-- Stellar Parallax -->
-        <script src="{{ asset('blog_template/js/jquery.stellar.min.js') }}"></script>
-        <!-- Flexslider -->
-        <script src="{{ asset('blog_template/js/jquery.flexslider-min.js') }}"></script>
-        <!-- Owl carousel -->
-        <script src="{{ asset('blog_template/js/owl.carousel.min.js') }}"></script>
-        <!-- Magnific Popup -->
-        <script src="{{ asset('blog_template/js/jquery.magnific-popup.min.js') }}"></script>
-        <script src="{{ asset('blog_template/js/magnific-popup-options.js') }}"></script>
-        <!-- Counters -->
-        <script src="{{ asset('blog_template/js/jquery.countTo.js') }}"></script>
-        <!-- Main -->
-        <script src="{{ asset('blog_template/js/main.js') }}"></script>
+        // ...
 
         @yield('custom_js')
 
