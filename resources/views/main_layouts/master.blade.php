@@ -67,22 +67,30 @@
                     <div class="container">
                         <div class="row">
                             <div class="col-md-2">
-                                <div id="colorlib-logo"><a href="index.html">Blog</a></div>
+                                <div id="colorlib-logo"><a href="{{ route('home') }}">Blog</a></div>
                             </div>
                             <div class="col-md-10 text-right menu-1">
                                 <ul>
-                                    <li><a href="index.html">Home</a></li>
+                                    <li><a href="{{ route('home') }}">Home</a></li>
                                     <li class="has-dropdown">
-                                        <a href="courses.html">Categories</a>
+                                        <a href="">Categories</a>
                                         <ul class="dropdown">
                                             <li><a href="#">Programming</a></li>
                                             <li><a href="#">Games</a></li>
                                             <li><a href="#">Soft Skills</a></li>
                                         </ul>
                                     </li>
-                                    <li><a href="about.html">About</a></li>
-                                    <li><a href="contact.html">Contact</a></li>
-                                    <li class="btn-cta"><a href="#"><span>Sign in</span></a></li>
+                                    <li><a href="{{ route('about') }}">About</a></li>
+                                    <li><a href="{{ route('contact') }}">Contact</a></li>
+
+                                    @guest
+                                    <li class="btn-cta"><a href="{{ route('login') }}"><span>Sign in</span></a></li>
+                                    @endguest
+
+                                    @auth
+                                    <li class="btn-cta"><a href=""><span>Admin</span></a></li>
+                                    @endauth
+
                                 </ul>
                             </div>
                         </div>

@@ -208,3 +208,100 @@ Route::get('/post', function () {
     return view('post');
 })->name('post');
 ```
+
+## コンタクトページと About ページの作成
+
+コンタクトページと About ページの作成のため `resources\views`に `contact.blade.php` と `about.blade.php` を作成。
+
+作成したら、`resources\views\contact.blade.php` に  `public\blog_template\contact.html` の内容をコピー。また、`resources\views\about.blade.php` に `public\blog_template\contact.html` の内容をコピー。
+
+2つのファイルにコピーしたら、Blade ファイルとして活用するために以下のように編集。
+
+```html:about.blade.php
+@extends('main_layouts.master')
+
+@section('title', 'Myblog | About')
+
+@section('content')
+<div id="colorlib-counter" class="colorlib-counters">
+    // ...
+</div>
+
+<div class="colorlib-about">
+    // ...
+</div>
+@endsection
+```
+
+```html:contact.blade.php
+@extends('main_layouts.master')
+
+@section('title', 'Myblog | Contact')
+
+@section('content')
+<div class="colorlib-contact">
+    // ...
+</div>
+@endsection
+```
+
+ルートに About ページ と Contact ページを記述
+
+```php:web
+// ...
+
+Route::get('/about', function () {
+    return view('about');
+})->name('about');
+
+Route::get('/contact', function () {
+    return view('contact');
+})->name('contact');
+```
+
+`master.blade.php` を開いて メニューに名前付きルートとゲスト用のログインページ情報を追加。
+
+```diff
+# master.blade.php
+
+ <nav class="colorlib-nav" role="navigation">
+    <div class="top-menu">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-2">
+-                   <div id="colorlib-logo"><a href="index.html">Blog</a></div>
++                   <div id="colorlib-logo"><a href="{{ route('home') }}">Blog</a></div>
+                </div>
+                <div class="col-md-10 text-right menu-1">
+                    <ul>
+-                       <li><a href="index.html">Home</a></li>
++                       <li><a href="{{ route('home') }}">Home</a></li>
+                        <li class="has-dropdown">
+-                          <a href="courses.html">Categories</a>
++                            <a href="">Categories</a>
+                            <ul class="dropdown">
+                                <li><a href="#">Programming</a></li>
+                                <li><a href="#">Games</a></li>
+                                <li><a href="#">Soft Skills</a></li>
+                            </ul>
+                        </li>
+-                       <li><a href="about.html">About</a></li>
++                       <li><a href="{{ route('about') }}">About</a></li>
+-                       <li><a href="contact.html">Contact</a></li>
++                       <li><a href="{{ route('contant') }}">Contact</a></li>
+
++                       @guest
+-                       <li class="btn-cta"><a href="#"><span>Sign in</span></a></li>
++                       <li class="btn-cta"><a href="{{ route('login') }}"><span>Sign in</span></a></li>
++                       @endguest
+
++                       @auth
++                       <li class="btn-cta"><a href="#"><span>Admin</span></a></li>
++                       @endauth
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+ </nav>
+```
