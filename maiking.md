@@ -352,5 +352,98 @@ Route::get('/contact', function () {
 +                       </ul>
 +                   </li>
                     @endauth
+```
 
+## ユーザーとロールのリレーション
+
+ユーザーとロール（役割）のリレーションを行います。まずは `Role` モデルと Role モデルのマイグレーションファイルを以下のコマンドで作成します。
+
+```
+php artisan make:model Role -m
+```
+
+作成されたマイグレーションファイル `create_roles_table.php` を開いて以下のように編集してください。
+
+```diff
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('roles', function (Blueprint $table) {
+            $table->id();
++           $table->boolean('status')->default(1);
++           $table->string('name');
+            $table->timestamps();
+        });
+    }
+```
+
+次に、すでにある `users` テーブルに Role モデルに関連するカラムを追加します。以下のコマンドで `users` テーブルにカラムを追加するマイグレーションファイルを作成します。
+
+```
+php artisan make:migration add_role_id_to_users --table=users
+```
+
+作成された `add_role_id_to_users.php` ファイルを開き、User テーブルにカラム情報の追加を行います。
+
+```diff
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::table('users', function (Blueprint $table) {
++           $table->boolean('status')->default(1);
++           $table->foreignId('role_id')->constrained();
+        });
+    }
+```
+
+各モデルにリレーション情報を書き込みます。
+
+```diff
+// User.php
+
+// ...
+class User extends Authenticatable
+{
+    // ...
+
++   public function role()
++   {
++       return $this->belongsTo(Role::class);
++   }
+```
+
+```diff
+// Role.php
+
+// ...
+class Role extends Model
+{
+    use HasFactory;
+
++   public function users()
++   {
++       return $this->hasMany(User::class);
++   }
+```
+
+ユーザーの登録テストを追加するため シーダー情報を追記します。`DatabaseSeeder.php` を開いて以下のように編集します。
+
+```diff
+public function run()
+{
+    // ...
+
++   $role = Role::create([
++       'name' => 'author',
++   ]);
+
++   $role->users()->create([
++       'name' => 'admin',
++       'email' => 'admin@example.com',
++       'password' => Hash::make('password'),
++       'status' => 1,
++   ]);
+}
 ```
