@@ -447,3 +447,92 @@ public function run()
 +   ]);
 }
 ```
+
+## Post モデルとマイグレーションファイルの作成
+
+```
+php artisan make:model Post -m
+```
+
+`database\migrations\2022_08_02_160845_create_posts_table.php` を編集
+
+```diff
+// ...
+
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('posts', function (Blueprint $table) {
+            $table->id();
++           $table->string('title');
++           $table->string('slug');
++           $table->string('excerpt');
++           $table->text('body');
++
++           $table->foreignId('user_id')->constrained();
++           $table->timestamps();
+        });
+    }
+```
+
+`app\Models\Post.php` にリレーション情報を追加
+
+```diff
+class Post extends Model
+{
+    use HasFactory;
+
++   public function author()
++   {
++       return $this->belongsTo(User::class, 'user_id');
++   }
+```
+
+`app\Models\User.php` にもリレーション関連を追加
+
+```diff
+class User extends Authenticatable
+{
+    use HasApiTokens, HasFactory, Notifiable;
+    
+    // ...
+
++   public function role()
++   {
++       return $this->belongsTo(Role::class);
++   }
++
++   public function posts()
++   {
++       return $this->hasMany(Post::class);
++   }
+```
+
+`database\seeders\DatabaseSeeder.php` に シーダーを追記
+
+```diff
+class DatabaseSeeder extends Seeder
+{
+    public function run()
+    {
+        $role = Role::create([
+            'name' => 'author',
+        ]);
+
+-       $role->users()->create([
++       $user = $role->users()->create([
+            'name' => 'admin',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('password'),
+            'status' => 1,
+        ]);
+
++       $user->posts()->create([
++           'title' => 'This is title',
++           'slug' => 'This is slug',
++           'excerpt' => 'This is excerpt',
++           'body' => 'This is content',
++       ]);
+    }
+```

@@ -28,11 +28,18 @@ class DatabaseSeeder extends Seeder
             'name' => 'author',
         ]);
 
-        $role->users()->create([
+        $user = $role->users()->create([
             'name' => 'admin',
             'email' => 'admin@example.com',
             'password' => Hash::make('password'),
             'status' => 1,
+        ]);
+
+        $user->posts()->create([
+            'title' => 'This is title',
+            'slug' => 'This is slug',
+            'excerpt' => 'This is excerpt',
+            'body' => 'This is content',
         ]);
     }
 }
