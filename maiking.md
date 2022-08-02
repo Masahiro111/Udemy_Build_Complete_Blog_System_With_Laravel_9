@@ -305,3 +305,52 @@ Route::get('/contact', function () {
     </div>
  </nav>
 ```
+
+ブラウザで表示を確認する。ここで、認証済みの際のメニュー欄に表示するユーザーのドロップダウンメニューを追加する。`master.blade.php` を以下のように編集。
+
+```diff
+// ...
+
+<div class="top-menu">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-2">
+                <div id="colorlib-logo"><a href="{{ route('home') }}">Blog</a></div>
+            </div>
+            <div class="col-md-10 text-right menu-1">
+                <ul>
+                    <li><a href="{{ route('home') }}">Home</a></li>
+-                   <li class="has-dropdown">
+-                       <a href="">Categories</a>
+-                       <ul class="dropdown">
+-                           <li><a href="#">Programming</a></li>
+-                           <li><a href="#">Games</a></li>
+-                           <li><a href="#">Soft Skills</a></li>
+-                       </ul>
+-                   </li>
+                    <li><a href="{{ route('about') }}">About</a></li>
+                    <li><a href="{{ route('contact') }}">Contact</a></li>
+
+                    @guest
+                    <li class="btn-cta"><a href="{{ route('login') }}"><span>Sign in</span></a></li>
+                    @endguest
+
+                    @auth                   
+-                   <li class="btn-cta"><a href="#"><span>Admin</span></a></li>
++                   <li class="has-dropdown">
++                       <a href="">{{ auth()->user()->name }} <span class="caret"></span></a>
++                       <ul class="dropdown">
++                           <li>
++                               <a
++                                   onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();"
++                                   href="{{ route('logout') }}">Logout</a>
++
++                               <form id="nav-logout-form" action=" {{ route('logout') }}" method="POST">
++                                   @csrf
++                               </form>
++                           </li>
++                       </ul>
++                   </li>
+                    @endauth
+
+```

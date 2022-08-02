@@ -72,14 +72,6 @@
                             <div class="col-md-10 text-right menu-1">
                                 <ul>
                                     <li><a href="{{ route('home') }}">Home</a></li>
-                                    <li class="has-dropdown">
-                                        <a href="">Categories</a>
-                                        <ul class="dropdown">
-                                            <li><a href="#">Programming</a></li>
-                                            <li><a href="#">Games</a></li>
-                                            <li><a href="#">Soft Skills</a></li>
-                                        </ul>
-                                    </li>
                                     <li><a href="{{ route('about') }}">About</a></li>
                                     <li><a href="{{ route('contact') }}">Contact</a></li>
 
@@ -88,7 +80,20 @@
                                     @endguest
 
                                     @auth
-                                    <li class="btn-cta"><a href=""><span>Admin</span></a></li>
+                                    <li class="has-dropdown">
+                                        <a href="">{{ auth()->user()->name }} <span class="caret"></span></a>
+                                        <ul class="dropdown">
+                                            <li>
+                                                <a
+                                                   onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();"
+                                                   href="{{ route('logout') }}">Logout</a>
+
+                                                <form id="nav-logout-form" action=" {{ route('logout') }}" method="POST">
+                                                    @csrf
+                                                </form>
+                                            </li>
+                                        </ul>
+                                    </li>
                                     @endauth
 
                                 </ul>
