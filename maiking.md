@@ -536,3 +536,97 @@ class DatabaseSeeder extends Seeder
 +       ]);
     }
 ```
+
+## Category モデルとマイグレーションファイルの作成
+
+Category モデルとマイグレーションファイルの作成のためコマンドを入力
+
+```
+php artisan make:model Category -m
+```
+
+作成された `app\Models\Category.php` を以下のように編集。
+
+```diff
+class Category extends Model
+{
+    use HasFactory;
+
++   protected $fillable = [
++       'name', 'slug',
++   ];
+
++   public function posts()
++   {
++       return $this->hasMany(Post::class);
++   }
+}
+```
+
+作成された `database\migrations\2022_08_03_060126_create_categories_table.php` を以下のように編集。
+
+```diff
+// ...
+
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('categories', function (Blueprint $table) {
+            $table->id();
++           $table->string('name');
++           $table->string('slug')->unique();
+            $table->timestamps();
+        });
+    }
+```
+
+`posts` テーブルに外部キーの `category_id` を持たせるために新規に posts テーブル更新用のマイグレーションファイルをコマンドで作成
+
+```
+php artisan make:migration add_category_id_to_posts --table=posts
+```
+
+作成された `database\migrations\2022_08_03_060616_add_category_id_to_posts.php` ファイルを以下のように編集。
+
+```diff
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::table('posts', function (Blueprint $table) {
++          $table->foreignId('category_id')->constrained();
+        });
+```
+
+`category_id` をシーダーファイルに含ませるためにシーダーファイルを編集
+
+```diff
+class DatabaseSeeder extends Seeder
+{
+    public function run()
+    {
+        $role = Role::create([
+            'name' => 'author',
+        ]);
+
++       $category = Category::create([
++           'name' => 'Education',
++           'slug' => 'education'
++       ]);
+
+        $user = $role->users()->create([
+            'name' => 'admin',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('password'),
+            'status' => 1,
+        ]);
+
+        $user->posts()->create([
+            'title' => 'This is title',
+            'slug' => 'This is slug',
+            'excerpt' => 'This is excerpt',
+            'body' => 'This is content',
++           'category_id' => 1,
+        ]);
+```
