@@ -758,3 +758,125 @@ class DatabaseSeeder extends Seeder
     }
 }
 ```
+
+## コメントテーブルの作成
+
+Comment モデルとマイグレーションファイル作成するためのコマンドを以下のように入力する
+
+```
+php artisan make:model Comment -m
+```
+
+作成された `app\Models\Comment.php` を以下のように編集。
+
+Comment モデルは 
+- Post モデルに対して `1対多` の関係
+- User モデルに対しては `1対多` の関係
+
+
+
+```diff
+// ...
+
+class Comment extends Model
+{
+    use HasFactory;
+
++   protected $fillable = [
++       'the_comment', 'user_id', 'post_id',
++   ];
++
++   public function post()
++   {
++       return $this->belongsTo(Post::class);
++   }
++
++   public function user()
++   {
++       return $this->belongsTo(User::class);
++   }
+}
+```
+
+作成された `create_comments_table.php` ファイルを以下のように編集
+
+```diff
+// ...
+
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('comments', function (Blueprint $table) {
+            $table->id();
++           $table->string('the_comment');
++           $table->foreignId('user_id')->constrained();
++           $table->foreignId('post_id')->constrained();
+            $table->timestamps();
+        });
+    }
+```
+
+リレーションの設定のため `User.php` を編集
+
+```diff
+class User extends Authenticatable
+{
+    // ...
+
++   public function comments()
++   {
++       return $this->hasMany(Comment::class);
++   }
+}
+```
+
+`Post.php` についても以下のように編集
+
+```diff
+class Post extends Model
+{
+    // ...
+
++   public function comments()
++   {
++       return $this->hasMany(Comment::class);
++   }
+}
+```
+
+`database\seeders\DatabaseSeeder.php` を編集
+
+```diff
+// ...
+
+class DatabaseSeeder extends Seeder
+{
+    public function run()
+    {
+        // ...
+
+        $post = $user->posts()->create([
+            'title' => 'This is title',
+            'slug' => 'This is slug',
+            'excerpt' => 'This is excerpt',
+            'body' => 'This is content',
+            'category_id' => 1,
+        ]);
+
++       $post->comments()->create([
++           'the_comment' => '1st subaru',
++           'user_id' => $user->id,
++       ]);
+
++       $post->comments()->create([
++           'the_comment' => '2st subaru',
++           'user_id' => $user->id,
++       ]);
+
+        $post->tags()->attach([
+            $tag1->id, $tag2->id, $tag3->id
+        ]);
+    }
+}
+```
