@@ -880,3 +880,172 @@ class DatabaseSeeder extends Seeder
     }
 }
 ```
+
+## Image モデルとリレーションの作成
+
+Image モデルとマイグレーションファイルの作成のため以下のコマンドを入力
+
+```
+php artisan make:model Image -m
+```
+
+作成された `app\Models\Image.php` を以下のように編集
+
+```diff
+// ...
+
+class Image extends Model
+{
+    use HasFactory;
+
++   protected $fillable = [
++       'name', 'extension', 'path',
++   ];
+
++   public function imageable()
++   {
++       return $this->morphTo();
++   }
+}
+```
+
+作成された `create_images_table.php` を以下のように編集
+
+```diff
+// ...
+
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('images', function (Blueprint $table) {
+            $table->id();
++           $table->string('name');
++           $table->string('extension');
++           $table->string('path');
+
++           $table->unsignedBigInteger('imageable_id');
++           $table->string('imageable_type');
+
+            $table->timestamps();
+        });
+    }
+
+    // ...
+}
+```
+
+Post モデルに Image モデルとのリレーション情報を記入
+
+```diff
+class Post extends Model
+{
+    // ...
+
++   public function image()
++   {
++       return $this->morphOne(image::class, 'imageable');
++   }
+}
+```
+
+User モデルにも Image モデルとリレーション情報を記入。
+
+```diff
+class User extends Authenticatable
+{
+    // ...
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
++       'role_id',
+    ];
+
+    // ...
+
++   public function image()
++   {
++       $this->morphOne(Image::class, 'imageable');
++   }
+}
+```
+
+次に `app\Http\Controllers\Auth\RegisteredUserController.php` を開いて以下のように編集
+
+```diff
+class RegisteredUserController extends Controller
+{
+    // ...
+
+    public function store(Request $request)
+    {
+
++       $role = Role::where('name', 'user')->first();
++       if ($role == null) {
++           $role = Role::create([
++               'name' => 'user',
++           ]);
++           $role_id = $role->id;
++       } else {
++           $role_id = $role->id;
++       }
+
+        // ...
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
++           'role_id' => $role_id,
+        ]);
+
+        // ...
+    }
+}
+```
+
+`create_posts_table.php` を以下のように編集
+
+```diff
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('posts', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+-           $table->string('slug');
++           $table->string('slug')->unique();
+            $table->string('excerpt');
+            $table->text('body');
+
+            $table->foreignId('user_id')->constrained();
+            $table->timestamps();
+        });
+    }
+}
+```
+
+シーダーファイルに情報を記入
+
+```diff
+class DatabaseSeeder extends Seeder
+{
+    public function run()
+    {
+        // ...
+
++       $post->image()->create([
++           'name' => 'random file',
++           'extension' => 'jpg',
++           'path' => '/image/random_file.jpg',
++       ]);
+
+        $post->tags()->attach([
+            $tag1->id, $tag2->id, $tag3->id
+        ]);
+    }
+}
+```

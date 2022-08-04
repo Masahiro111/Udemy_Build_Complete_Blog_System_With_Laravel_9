@@ -80,6 +80,12 @@ class DatabaseSeeder extends Seeder
             'user_id' => $user->id,
         ]);
 
+        $post->image()->create([
+            'name' => 'random file',
+            'extension' => 'jpg',
+            'path' => '/image/random_file.jpg',
+        ]);
+
         $post->tags()->attach([
             $tag1->id, $tag2->id, $tag3->id
         ]);
