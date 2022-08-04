@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\Role;
+use App\Models\Tag;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -25,8 +26,28 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
 
-        $role = Role::create([
+        $role1 = Role::query()->create([
+            'name' => 'user',
+        ]);
+
+        $role2 = Role::query()->create([
             'name' => 'author',
+        ]);
+
+        $role3 = Role::query()->create([
+            'name' => 'admin',
+        ]);
+
+        $tag1 = Tag::query()->create([
+            'name' => 'php',
+        ]);
+
+        $tag2 = Tag::query()->create([
+            'name' => 'c++',
+        ]);
+
+        $tag3 = Tag::query()->create([
+            'name' => 'ruby',
         ]);
 
         $category = Category::create([
@@ -34,19 +55,23 @@ class DatabaseSeeder extends Seeder
             'slug' => 'education'
         ]);
 
-        $user = $role->users()->create([
+        $user = $role2->users()->create([
             'name' => 'admin',
             'email' => 'admin@example.com',
             'password' => Hash::make('password'),
             'status' => 1,
         ]);
 
-        $user->posts()->create([
+        $post = $user->posts()->create([
             'title' => 'This is title',
             'slug' => 'This is slug',
             'excerpt' => 'This is excerpt',
             'body' => 'This is content',
             'category_id' => 1,
+        ]);
+
+        $post->tags()->attach([
+            $tag1->id, $tag2->id, $tag3->id
         ]);
     }
 }

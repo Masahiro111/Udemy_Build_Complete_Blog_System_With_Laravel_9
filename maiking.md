@@ -630,3 +630,131 @@ class DatabaseSeeder extends Seeder
 +           'category_id' => 1,
         ]);
 ```
+
+## Tag モデルと Post モデルとのリレーション
+
+タグ機能を作成するため以下のコマンドを入力。
+
+```
+php artisan make:model Tag -m
+```
+
+作成された `app\Models\Tag.php` を以下のように編集
+
+```diff
+class Tag extends Model
+{
+    use HasFactory;
+
++   protected $fillable = [
++       'name'
++   ];
+
++   public function posts()
++   {
++       return $this->belongsToMany(Post::class);
++   }
+}
+```
+
+作成されたマイグレーションファイル `create_tags_table.php` も以下のように編集
+
+```diff
+// ...
+
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('tags', function (Blueprint $table) {
+            $table->id();
++           $table->string('name');
+            $table->timestamps();
+        });
+    }
+```
+
+多対多用のテーブルのマイグレーションファイルを作成させるため以下のコマンドを入力
+
+```
+php artisan make:migration create_post_tag_table --create=post_tag
+```
+
+`create_post_tag_table.php` マイグレーションファイルが作成されるので以下のように編集
+
+```diff
+// ...
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('post_tag', function (Blueprint $table) {
+            $table->id();
++           $table->foreignId('post_id')->constrained();
++           $table->foreignId('tag_id')->constrained();
+            $table->timestamps();
+        });
+    }
+```
+
+シーダーファイルの編集。タグ名やユーザーロール等の設定をもう一度確認。以下のように編集。
+
+```php
+// ...
+
+class DatabaseSeeder extends Seeder
+{
+    public function run()
+    {
+        // ロール名の初期設定
+        $role1 = Role::query()->create([
+            'name' => 'user',
+        ]);
+        $role2 = Role::query()->create([
+            'name' => 'author',
+        ]);
+        $role3 = Role::query()->create([
+            'name' => 'admin',
+        ]);
+
+        // タグ名の初期設定
+        $tag1 = Tag::query()->create([
+            'name' => 'php',
+        ]);
+        $tag2 = Tag::query()->create([
+            'name' => 'c++',
+        ]);
+        $tag3 = Tag::query()->create([
+            'name' => 'ruby',
+        ]);
+
+        // カテゴリ名の初期設定
+        $category = Category::create([
+            'name' => 'Education',
+            'slug' => 'education'
+        ]);
+
+        // ユーザー情報の登録
+        $user = $role2->users()->create([
+            'name' => 'admin',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('password'),
+            'status' => 1,
+        ]);
+
+        // 記事情報の登録
+        $post = $user->posts()->create([
+            'title' => 'This is title',
+            'slug' => 'This is slug',
+            'excerpt' => 'This is excerpt',
+            'body' => 'This is content',
+            'category_id' => 1,
+        ]);
+
+        // タグと記事のリレーション設定
+        $post->tags()->attach([
+            $tag1->id, $tag2->id, $tag3->id
+        ]);
+    }
+}
+```
