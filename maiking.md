@@ -810,8 +810,8 @@ return new class extends Migration
         Schema::create('comments', function (Blueprint $table) {
             $table->id();
 +           $table->string('the_comment');
-+           $table->foreignId('user_id')->constrained();
-+           $table->foreignId('post_id')->constrained();
++           $table->foreignId('user_id')->constrained()->cascadeOnDelete();
++           $table->foreignId('post_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
         });
     }
@@ -1048,4 +1048,61 @@ class DatabaseSeeder extends Seeder
         ]);
     }
 }
+```
+
+## ホームページの記事表示
+
+ホームのコントローラーを作成するため以下のコマンドを入力
+
+```
+php artisan make:controller HomeController
+```
+
+`app\Http\Controllers\HomeController.php` が作成されるので以下のように編集
+
+```diff
+class HomeController extends Controller
+{
+    public function index()
+    {
+
++       $posts = Post::query()
++           ->withCount('comments')
++           ->get();
++
++       return view('home', compact('posts'));
+    }
+}
+```
+
+`resources\views\home.blade.php` を編集。@foreach で記事を展開。
+
+```diff
+    // ...
+
+    @section('content')
+
+    <div class="colorlib-blog">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-8 posts-col">
+
++                   @foreach ($posts as $post )
+                    <div class="block-21 d-flex animate-box post">
+                        <a href="#" class="blog-img" style="background-image: url(blog_template/images/blog-1.jpg);"></a>
+                        <div class="text">
++                           <h3 class="heading"><a href="#">{{ $post->title }}</a></h3>
++                           <p class="excerpt">{{ $post->excerpt }}</p>
+                            <div class="meta">
++                               <div class="date"><a href="#"><span class="icon-calendar"></span> {{ $post->created_at->diffForHumans() }}</a></div>
++                               <div class=""><a href="#"><span class="icon-user2"></span> {{ $post->author->name }}</a></div>
++                               <div class="comments-count"><a href="#"><span class="icon-chat"></span> {{ $post->comments_count }}</a></div>
+                            </div>
+                        </div>
+                    </div>
++                   @endforeach
+
+                </div>
+                
+                // ...
 ```

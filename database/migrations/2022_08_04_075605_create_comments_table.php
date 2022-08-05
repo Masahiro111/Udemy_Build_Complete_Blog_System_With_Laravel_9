@@ -18,8 +18,15 @@ return new class extends Migration
             $table->string('the_comment');
             // $table->string('post_id');
             // $table->string('user_id');
-            $table->foreignId('user_id')->constrained();
-            $table->foreignId('post_id')->constrained();
+
+            $table->foreignId('user_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('post_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->timestamps();
         });
     }
