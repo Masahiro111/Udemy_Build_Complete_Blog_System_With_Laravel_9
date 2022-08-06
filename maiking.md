@@ -967,7 +967,7 @@ class User extends Authenticatable
 
 +   public function image()
 +   {
-+       $this->morphOne(Image::class, 'imageable');
++       return $this->morphOne(Image::class, 'imageable');
 +   }
 }
 ```
@@ -1105,4 +1105,77 @@ class HomeController extends Controller
                 </div>
                 
                 // ...
+```
+
+## 記事情報の画像を表示
+
+サムネイル画像のデータを `storage/app/publick` フォルダに保存した画像を表示するために以下のコマンドを入力
+
+```
+php artisan storage:link
+```
+
+`public` フォルダ直下に `storage/app/public` のショートカットフォルダができるので `storage/app/public`に `images` フォルダを作成してサムネイル画像を保存。
+
+`resources\views\home.blade.php` を編集。サムネイル画像を表示する。
+
+```diff
+    // ...
+
+    @foreach ($posts as $post )
+    <div class="block-21 d-flex animate-box post">
+-       <a href="#" class="blog-img" style="background-image: url(blog_template/images/blog-1.jpg);"></a>
++       <a href="#" class="blog-img" style="background-image: url({{ asset('storage/' . $post->image->path ) }});"></a>
+        <div class="text">
+            <h3 class="heading"><a href="#">{{ $post->title }}</a></h3>
+            <p class="excerpt">{{ $post->excerpt }}</p>
+            <div class="meta">
+                <div class="date"><a href="#"><span class="icon-calendar"></span> {{ $post->created_at->diffForHumans() }}</a></div>
+                <div class=""><a href="#"><span class="icon-user2"></span> {{ $post->author->name }}</a></div>
+                <div class="comments-count"><a href="#"><span class="icon-chat"></span> {{ $post->comments_count }}</a></div>
+            </div>
+        </div>
+    </div>
+    @endforeach
+```
+
+`database\seeders\DatabaseSeeder.php` を編集
+
+```diff
+// ...
+
+class DatabaseSeeder extends Seeder
+{
+    public function run()
+    {
+
+        // ...
+
+        $post->comments()->create([
+            'the_comment' => '1st subaru',
+            'user_id' => $user->id,
+        ]);
+
+        $post->comments()->create([
+            'the_comment' => '2st subaru',
+            'user_id' => $user->id,
+        ]);
+
++       $post->image()->create([
++           'name' => 'post file',
++           'extension' => 'jpg',
++           'path' => 'images/' . rand(0, 10) . '.jpg',
++       ]);
+
++       $user->image()->create([
++           'name' => 'user file',
++           'extension' => 'jpg',
++           'path' => 'images/' . rand(0, 10) . '.jpg',
++       ]);
+
+        $post->tags()->attach([
+            $tag1->id, $tag2->id, $tag3->id
+        ]);
+    }
+}
 ```
