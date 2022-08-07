@@ -1296,3 +1296,85 @@ class HomeController extends Controller
 +       ));
 }
 ```
+
+## トップページのページネーション
+
+トップページの記事一覧表示画面で記事数が多くなった場合に備えてページネーションの処理を記述していく。`home.blade.php` を開いて編集。ページネーションの表示記述とともに、@forelse を使用して記事がなかった場合の処理も同時に記述する。
+
+```diff
+ // ...
+
+ @section('content')
+ <div class="colorlib-blog">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 posts-col">
+
++               @forelse ($posts as $post )
+                <div class="block-21 d-flex animate-box post">
+                    <a href="#" class="blog-img" style="background-image: url({{ asset('storage/' . $post->image->path ) }});"></a>
+                    <div class="text">
+                        <h3 class="heading"><a href="#">{{ $post->title }}</a></h3>
+                        <p class="excerpt">{{ $post->excerpt }}</p>
+                        <div class="meta">
+                            <div class="date"><a href="#"><span class="icon-calendar"></span> {{ $post->created_at->diffForHumans() }}</a></div>
+                            <div class=""><a href="#"><span class="icon-user2"></span> {{ $post->author->name }}</a></div>
+                            <div class="comments-count"><a href="#"><span class="icon-chat"></span> {{ $post->comments_count }}</a></div>
+                        </div>
+                    </div>
+                </div>
++               @empty
++               <p>There are no posts to show.</p>
++               @endforelse
+
++               {{ $posts->links() }}
+
+            </div>
+
+            // ...
+```
+`HomeController.php` を編集する
+
+```diff
+// ...
+
+class HomeController extends Controller
+{
+    public function index()
+    {
+
+        $posts = Post::query()
+            ->withCount('comments')
++           ->paginate(5);
+
+        // ...
+```
+
+ページネーションの出力を `resources` フォルダに展開して編集できるようにするために以下のコマンドを入力
+
+```
+php artisan vendor:publish
+```
+
+今回は、ページネーション関するファイルを出力できれば良いので `  Tag: laravel-pagination` が表示されている番号を入力する。
+
+ページネーションの出力データは標準では Tailwind CSS が採用されいてる。 `resources\views\vendor\pagination\tailwind.blade.php` を見てみるとページネーションの出力時のコードをみることができる。また、Tailwind CSS の以外で出力したい場合は `app\Providers\AppServiceProvider.php` を編集して Bootstrap 等のフレームワークに変更することも可能。
+
+```diff
+<?php
+
+namespace App\Providers;
+
++ use Illuminate\Pagination\Paginator;
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
+{
+    // ...
+
+    public function boot()
+    {
++       Paginator::useBootstrap();
+    }
+}
+```

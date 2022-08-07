@@ -8,7 +8,7 @@
         <div class="row">
             <div class="col-md-8 posts-col">
 
-                @foreach ($posts as $post )
+                @forelse ($posts as $post )
                 <div class="block-21 d-flex animate-box post">
                     <a href="#" class="blog-img" style="background-image: url({{ asset('storage/' . $post->image->path ) }});"></a>
                     <div class="text">
@@ -21,7 +21,11 @@
                         </div>
                     </div>
                 </div>
-                @endforeach
+                @empty
+                <p>There are no posts to show.</p>
+                @endforelse
+
+                {{ $posts->links() }}
 
             </div>
 
