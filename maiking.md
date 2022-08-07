@@ -1229,3 +1229,70 @@ class HomeController extends Controller
 
     </div>
 ```
+
+## サイドバー 「カテゴリー」と「タグ」の表示
+
+`resources\views\home.blade.php` を編集。サイドバーに位置するカテゴリーの表示エリアの編集をする。以下のように @foreach ディレクティブを使用してループ処理を行う。また、タグ表示エリアの編集も同ファイルで行う。
+
+```diff
+    // ...
+
+    <div class="col-md-4 animate-box">
+        <div class="sidebar">
+            <div class="side">
+                <h3 class="sidebar-heading">Categories</h3>
+
+                <div class="block-24">
+                    <ul>
++                        @foreach ($categories as $category)
++                        <li><a href="#">{{ $category->name }} <span>{{ $category->posts_count }}</span></a></li>
++                        @endforeach
+                    </ul>
+                </div>
+            </div>
+
+            // ...
+
+            <div class="side">
+                <h3 class="sidbar-heading">Tags</h3>
+                <div class="block-26">
+                    <ul>
++                       @foreach ($tags as $tag)
++                       <li><a href="#">{{ $tag->name }}</a></li>
++                       @endforeach
+                    </ul>
+                </div>
+            </div>
+
+            // ...
+```
+
+`HomeController.php` に編集を行う。サイドバーのカテゴリーエリア用の Category モデルのインスタンスを、またタグエリア用の Tag モデルのインスタンスを `home.blade.php` に渡す処理を行う。
+
+```diff
+// ...
+
+class HomeController extends Controller
+{
+    public function index()
+    {
+        // ...
+
++       $categories = Category::query()
++           ->withCount('posts')
++           ->orderBy('posts_count', 'desc')
++           ->get();
++
++       $tags = Tag::query()
++           ->take(50)
++           ->get();
++
+-       return view('home', compact('posts', 'recent_posts'));
++       return view('home', compact(
++           'posts',
++           'recent_posts',
++           'categories',
++           'tags',
++       ));
+}
+```

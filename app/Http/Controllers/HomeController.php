@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Post;
+use App\Models\Tag;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
@@ -19,6 +21,20 @@ class HomeController extends Controller
             ->take(5)
             ->get();
 
-        return view('home', compact('posts', 'recent_posts'));
+        $categories = Category::query()
+            ->withCount('posts')
+            ->orderBy('posts_count', 'desc')
+            ->get();
+
+        $tags = Tag::query()
+            ->take(50)
+            ->get();
+
+        return view('home', compact(
+            'posts',
+            'recent_posts',
+            'categories',
+            'tags',
+        ));
     }
 }
