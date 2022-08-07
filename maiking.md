@@ -1378,3 +1378,132 @@ class AppServiceProvider extends ServiceProvider
     }
 }
 ```
+
+## 個別記事の表示
+
+個別記事を表示するためのコントローラーを以下のコマンドを入力して作成
+
+```
+php artisan make:controller PostController
+```
+
+次に `routes/web.php` を開いて編集
+
+```diff
+// ...
+
+Route::get('/post/{post:slug}', [PostController::class, 'show'])
+    ->name('posts.show');
+```
+
+作成された `PostController.php` を編集
+
+```php
+// ...
+
+class PostController extends Controller
+{
+    public function show(Post $post)
+    {
+        $recent_posts = Post::query()
+            ->latest()
+            ->take(5)
+            ->get();
+
+        $categories = Category::query()
+            ->withCount('posts')
+            ->orderBy('posts_count', 'desc')
+            ->get();
+
+        $tags = Tag::query()
+            ->take(50)
+            ->get();
+
+        return view('post', compact(
+            'post',
+            'recent_posts',
+            'categories',
+            'tags',
+        ));
+    }
+}
+```
+
+`post.blade.php` のサイドバーエリアをコンポーネント化する作業を行うため以下のように編集。
+また、`home.blade.php` も同様に編集
+
+```diff
+    // ...
+
+    <!-- SIDEBAR: start -->
+    <div class="col-md-4 animate-box">
+        <div class="sidebar">
++           <x-blog.side-categories :categories="$categories" />
+
++           <x-blog.side-recent-posts :recentPosts="$recent_posts" />
+
++           <x-blog.side-tags :tags="$tags" />
+        </div>
+    </div>
+```
+
+`x タグ` に対応する Blade ファイルを作成。 `resources\views\components` に `blog` フォルダを作成して、 `side-categories.blade.php`, `side-recent-posts.blade.php` , `side-tags.blade.php` を作成する
+
+
+// side-categories.blade.php
+
+```html
+@props(['categories'])
+
+<div class="side">
+    <h3 class="sidebar-heading">Categories</h3>
+
+    <div class="block-24">
+        <ul>
+            @foreach ($categories as $category)
+            <li><a href="#">{{ $category->name }} <span>{{ $category->posts_count }}</span></a></li>
+            @endforeach
+        </ul>
+    </div>
+</div>
+```
+
+// side-recent-posts.blade.php
+
+```html
+@props(['recentPosts'])
+
+<div class="side">
+    <h3 class="sidebar-heading">Recent Blog</h3>
+
+    @foreach ($recentPosts as $recent_post)
+    <div class="f-blog">
+        <a href="{{ route('posts.show', $recent_post) }}" class="blog-img" style="background-image: url({{ asset('storage/' . $recent_post->image->path ) }});">
+        </a>
+        <div class="desc">
+            <p class="admin"><span>{{ $recent_post->created_at->diffForHumans() }}</span></p>
+            <h2><a href="blog.html">{{ Str::limit( $recent_post->title, 20, '...') }}</a></h2>
+            <p>{{ $recent_post->excerpt }}</p>
+        </div>
+    </div>
+    @endforeach
+
+</div>
+```
+
+// side-tags.blade.php
+
+```html
+@props(['tags'])
+
+<div class="side">
+    <h3 class="sidbar-heading">Tags</h3>
+    <div class="block-26">
+        <ul>
+            @foreach ($tags as $tag)
+            <li><a href="#">{{ $tag->name }}</a></li>
+            @endforeach
+        </ul>
+    </div>
+</div>
+```
