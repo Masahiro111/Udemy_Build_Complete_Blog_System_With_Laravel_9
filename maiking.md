@@ -1526,7 +1526,7 @@ class PostController extends Controller
 +        $attributes['user_id'] = auth()->id();
 +        $comment = $post->comments()->create($attributes);
 +
-+        return redirect('/posts/' . $post->slug . '#comment_' . $comment->id)
++        return redirect('/post/' . $post->slug . '#comment_' . $comment->id)
 +            ->with('success', 'Comment has been added.');
 +     }
 }
@@ -1602,7 +1602,7 @@ class PostController extends Controller
 Route::get('/post/{post:slug}', [PostController::class, 'show'])
     ->name('posts.show');
 
-+ Route::post('/posts/{post:slug}', [PostController::class, 'addComment'])
++ Route::post('/post/{post:slug}', [PostController::class, 'addComment'])
 +     ->name('posts.add_comment');
 ```
 
@@ -1638,4 +1638,40 @@ Route::get('/post/{post:slug}', [PostController::class, 'show'])
     {{ session($status) }}
 </div>
 @endif
+```
+
+## About ページの表示
+
+About ページを表示をする処理を行う。まず AboutController を作成する。以下のコマンドでコントローラーを作成。
+
+```
+php artisan make:controller AboutController --invokable
+```
+
+作成された `app\Http\Controllers\AboutController.php` を編集。
+
+```diff
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+
+class AboutController extends Controller
+{
+    public function __invoke(Request $request)
+    {
++       return view('about');
+    }
+}
+```
+
+`routes\web.php` を編集
+
+```diff
+- Route::get('/about', function () {
+-     return view('about');
+- })->name('about');
+
++ Route::get('/about', AboutController::class)->name('about');
 ```
