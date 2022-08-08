@@ -1605,3 +1605,37 @@ Route::get('/post/{post:slug}', [PostController::class, 'show'])
 + Route::post('/posts/{post:slug}', [PostController::class, 'addComment'])
 +     ->name('posts.add_comment');
 ```
+
+## 個別記事のコメントのステータスメッセージ
+
+コメントを投稿したあとにメッセージが登録されたかを表示するステータスメッセージ欄を表示する。
+
+`resources\views\post.blade.php` を以下のように編集
+
+```diff
+    // ...
+
+    <div class="row animate-box">
+        <div class="col-md-12">
+
++           <x-blog.message :status="'success'" />
+
+            <h2 class="colorlib-heading-2">Say something</h2>
+
+            @auth
+            <form method="POST" action="{{ route('posts.add_comment', $post) }}">
+                @csrf
+                <div class="row form-group">
+```
+
+また、xタグに対応する blade ファイルを作成する。`resources\views\components\blog` 内に `message.blade.php` を作成して以下のように編集
+
+```html
+@props(['status'])
+
+@if(session()->has($status))
+<div class="alert alert-{{ $status == 'success' ? 'info' : 'danger' }}">
+    {{ session($status) }}
+</div>
+@endif
+```
