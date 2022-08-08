@@ -112,7 +112,7 @@
 
             @yield('content')
 
-            <div id="colorlib-subscribe" class="subs-img" style="background-image: url(blog_template/images/img_bg_2.jpg);" data-stellar-background-ratio="0.5">
+            <div id="colorlib-subscribe" class="subs-img" style="background-image: url(/blog_template/images/img_bg_2.jpg);" data-stellar-background-ratio="0.5">
                 <div class="overlay"></div>
                 <div class="container">
                     <div class="row">
@@ -199,7 +199,7 @@
                         <div class="col-md-3 colorlib-widget">
                             <h4>Recent Post</h4>
                             <div class="f-blog">
-                                <a href="blog.html" class="blog-img" style="background-image: url(blog_template/images/blog-1.jpg);">
+                                <a href="blog.html" class="blog-img" style="background-image: url(/blog_template/images/blog-1.jpg);">
                                 </a>
                                 <div class="desc">
                                     <h2><a href="blog.html">Creating Mobile Apps</a></h2>
@@ -207,7 +207,7 @@
                                 </div>
                             </div>
                             <div class="f-blog">
-                                <a href="blog.html" class="blog-img" style="background-image: url(blog_template/images/blog-2.jpg);">
+                                <a href="blog.html" class="blog-img" style="background-image: url(/blog_template/images/blog-2.jpg);">
                                 </a>
                                 <div class="desc">
                                     <h2><a href="blog.html">Creating Mobile Apps</a></h2>
