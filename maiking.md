@@ -1675,3 +1675,201 @@ class AboutController extends Controller
 
 + Route::get('/about', AboutController::class)->name('about');
 ```
+
+## Contact ページの送信機能
+
+Contact ページの送信機能を実装するために以下のコマンドを入力
+
+```
+php artisan make:controller ContactController
+```
+
+作成された `app\Http\Controllers\ContactController.php` を以下のように編集
+
+```diff
+// ...
+
+class ContactController extends Controller
+{
++    public function create()
++    {
++        return view('contact');
++    }
++
++    public function store(Request $request)
++    {
++        $validated = $request->validate([
++            'first_name' => 'required',
++            'last_name' => 'required',
++            'email' => 'required',
++            'subject' => 'nullable|min:5|max:50',
++            'message' => 'required|min:5|max:500',
++        ]);
++
++        Contact::query()->create($validated);
++
++        return redirect()->route('contact.create')
++            ->with('success', 'Your Message has been sent');
++    }
+}
+```
+
+続けて、モデルとマイグレーションファイルを作成するためのコマンドを入力
+
+```
+php artisan make:model Contact -m
+```
+
+作成された `app\Models\Contact.php` を以下のように編集
+
+```diff
+// ...
+
+class Contact extends Model
+{
+    use HasFactory;
+
++   protected $guarded = [];
+}
+```
+
+また、作成された `create_contacts_table.php` を以下のように編集
+
+```diff
+    // ...
+
+    return new class extends Migration
+    {
+        public function up()
+        {
+            Schema::create('contacts', function (Blueprint $table) {
+                $table->id();
++               $table->string('first_name');
++               $table->string('last_name');
++               $table->string('email');
++               $table->string('subject');
++               $table->text('message');
+                $table->timestamps();
+            });
+        }
+
+        // ...
+    }
+```
+
+`resources\views\contact.blade.php` を以下のように編集
+
+```diff
+
+        // ...
+
+        <div class="row">
+            <div class="col-md-12">
+                <h2>Message Us</h2>
+            </div>
+            <div class="col-md-6">
++               <form autocomplete="off" method="POST" action="{{ route('contact.store') }}">
++                   @csrf
+                    <div class="row form-group">
+                        <div class="col-md-6">
+                            <!-- <label for="fname">First Name</label> -->
++                           <x-blog.form.input value='{{ old("first_name") }}' placeholder='Your Firstname' name="first_name" />
+                        </div>
+                        <div class="col-md-6">
+                            <!-- <label for="lname">Last Name</label> -->
++                           <x-blog.form.input value='{{ old("last_name") }}' placeholder='Your Lastname' name="last_name" />
+                        </div>
+                    </div>
+
+                    <div class="row form-group">
+                        <div class="col-md-12">
+                            <!-- <label for="email">Email</label> -->
++                           <x-blog.form.input value='{{ old("email") }}' placeholder='Your Email' type='email' name="email" />
+                        </div>
+                    </div>
+
+                    <div class="row form-group">
+                        <div class="col-md-12">
+                            <!-- <label for="subject">Subject</label> -->
++                           <x-blog.form.input value='{{ old("subject") }}' required='false' name="subject" placeholder='Your Subject' />
+                        </div>
+                    </div>
+
+                    <div class="row form-group">
+                        <div class="col-md-12">
+                            <!-- <label for="message">Message</label> -->
++                           <x-blog.form.textarea value='{{ old("message") }}' placeholder='What you want to tell us.' name="message" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <input type="submit" value="Send Message" class="btn btn-primary">
+                    </div>
+                </form>
+
++               <x-blog.message :status="'success'" />
+            </div>
+            <div class="col-md-6">
+                <div id="map" class="colorlib-map"></div>
+            </div>
+        </div>
+
+        // ...
+```
+
+`resources\views\components\blog` に新規に `form\input.blade.php` ファイルを作成して以下のように編集
+
+```html
+@props(['type' => 'text' , 'name', 'placeholder','required' => 'true','value'])
+
+<input
+       type="{{ $type }}"
+       id="{{ $name }}"
+       name="{{ $name }}"
+       value="{{ $value }}"
+       placeholder="{{ $placeholder }}"
+       class=" form-control"
+       {{ $required=='true' ? 'required' : '' }}>
+
+@error($name)
+<small class=" text-danger">{{ $message }}</small>
+@enderror
+```
+
+同フォルダに `textarea.blade.php` も作成して以下のように編集
+
+```html
+@props(['name', 'placeholder', 'value'])
+
+<textarea
+          rows="5"
+          required
+          id="{{ $name }}"
+          name='{{ $name }}'
+          class="form-control"
+          placeholder="{{ $placeholder }}">{{ $value }}</textarea>
+
+@error($name)
+<small class="text-danger">{{ $message }}</small>
+@enderror
+```
+
+`web.php` を編集
+
+```diff
+- Route::get('/contact', function () {
+-     return view('contact');
+- })->name('contact');
+
++ Route::get('/contact', [ContactController::class, 'create'])
++     ->name('contact.create');
+
++ Route::post('/contact', [ContactController::class, 'store'])
++     ->name('contact.store');
+```
+
+`master.blade.php` を編集
+
+```diff
+- <li><a href="{{ route('contact') }}">Contact</a></li>
++ <li><a href="{{ route('contact.create') }}">Contact</a></li>
+```
