@@ -1873,3 +1873,119 @@ class Contact extends Model
 - <li><a href="{{ route('contact') }}">Contact</a></li>
 + <li><a href="{{ route('contact.create') }}">Contact</a></li>
 ```
+
+## マークダウン対応のメールを送信
+
+コンタクトページからメッセージを送信するときにマークダウンのテンプレートをもとにメールを送信する処理をする。メールを送信するために以下のコマンドを入力
+
+```
+php artisan make:mail ContactMail --markdown=emails.contact
+```
+
+`--markdown` オプションで指定のマークダウン用の Blade ファイルを作成することができる。上記のコマンドでは  `resources\views\emails\contact.blade.php` にファイルが自動的に作成される。また `app\Mail\ContactMail.php` にもファイルが作成される。
+
+作成された `app\Mail\ContactMail.php` を編集
+
+```diff
+    // ...
+
+    class ContactMail extends Mailable
+    {
+        use Queueable, SerializesModels;
+
++       public $firstname;
++       public $secondname;
++       public $email;
++       public $subject;
++       public $message;
+
++       public function __construct($firstname, $secondname, $email, $subject, $message)
+        {
++           $this->firstname = $firstname;
++           $this->secondname = $secondname;
++           $this->email = $email;
++           $this->subject = $subject;
++           $this->message = $message;
+        }
+
+        public function build()
+        {
+            return $this->markdown('emails.contact');
+        }
+    }
+```
+
+`resources\views\emails\contact.blade.php` も編集
+
+```html
+@component('mail::message')
+# Visitor Message
+
+Some Visitor Left a message:
+<br><br>
+Firstname: {{ $firstname }}
+<br>
+Secondname: {{ $secondname }}
+<br>
+Email: {{ $email }}
+<br>
+Subject: {{ $subject }}
+<br>
+Message: {{ $message }}
+
+@component('mail::button', ['url' => ''])
+View Message
+@endcomponent
+
+Thanks,<br>
+{{ config('app.name') }}
+@endcomponent
+```
+
+`app\Http\Controllers\ContactController.php` を編集
+
+```diff
+<?php
+
+namespace App\Http\Controllers;
+
++ use App\Mail\ContactMail;
+use App\Models\Contact;
+use Illuminate\Http\Request;
++ use Illuminate\Support\Facades\Mail;
+
+class ContactController extends Controller
+{
+    public function create()
+    {
+        return view('contact');
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'first_name' => 'required',
+            'last_name' => 'required',
+            'email' => 'required',
+            'subject' => 'nullable|min:5|max:50',
+            'message' => 'required|min:5|max:500',
+        ]);
+
+        Contact::query()->create($validated);
+
++       Mail::to("admin@example.com")
++           ->send(new ContactMail(
++               $validated['first_name'],
++               $validated['last_name'],
++               $validated['email'],
++               $validated['subject'],
++               $validated['message']
++           ));
+
+        return redirect()->route('contact.create')
+            ->with('success', 'Your Message has been sent');
+    }
+}
+```
+
+メールを送信テストするための設定をする
