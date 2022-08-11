@@ -1988,4 +1988,286 @@ class ContactController extends Controller
 }
 ```
 
-メールを送信テストするための設定をする
+`.env` ファイルにメールを送信テストするための設定をする
+
+## Ajax でコンタクトフォームの情報をメール送信させる
+
+コンタクトフォームの記入した情報を Ajax で送信してメールも送信させる。
+
+`app\Http\Controllers\ContactController.php` を以下ように編集
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Mail\ContactMail;
+use App\Models\Contact;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
+
+class ContactController extends Controller
+{
+    public function create()
+    {
+        return view('contact');
+    }
+
+    public function store(Request $request)
+    {
+        $data = array();
+        $data['success'] = 0;
+        $data['errors'] = [];
+        $rules = [
+            'first_name' => 'required',
+            'last_name' => 'required',
+            'email' => 'required',
+            'subject' => 'nullable|min:5|max:50',
+            'message' => 'required|min:5|max:500',
+        ];
+        $validated = Validator::make($request->all(), $rules);
+
+        if ($validated->fails()) {
+            $data['errors']['first_name'] = $validated->errors()->first('first_name');
+            $data['errors']['last_name'] = $validated->errors()->first('last_name');
+            $data['errors']['email'] = $validated->errors()->first('email');
+            $data['errors']['subject'] = $validated->errors()->first('subject');
+            $data['errors']['message'] = $validated->errors()->first('message');
+        } else {
+            $attributes = $validated->validated();
+            Contact::create($attributes);
+
+            Mail::to('admin@example.com')->send(new ContactMail(
+                $attributes['first_name'],
+                $attributes['last_name'],
+                $attributes['email'],
+                $attributes['subject'],
+                $attributes['message']
+            ));
+            $data['success'] = 1;
+            $data['message'] = 'Thank you for contacting with us';
+        }
+        return response()->json($data);
+    }
+}
+```
+
+`resources\views\contact.blade.php` を以下のように編集
+
+```diff
+    // ...
+
+    @section('content')
++   <div class='global-message info d-none'></div>
+
+    <div class="colorlib-contact">
+        <div class="container">
+
+            // ...
+
+            <div class="row">
+                <div class="col-md-12">
+                    <h2>Message Us</h2>
+                </div>
+                <div class="col-md-6">
++                   <form onsubmit="return false;" autocomplete="off" method="POST">
+                        @csrf
+                        <div class="row form-group">
+                            <div class="col-md-6">
+                                <!-- <label for="fname">First Name</label> -->
+                                <x-blog.form.input value='{{ old("first_name") }}' placeholder='Your Firstname' name="first_name" />
++                               <small class='error text-danger first_name'></small>
+                            </div>
+                            <div class="col-md-6">
+                                <!-- <label for="lname">Last Name</label> -->
+                                <x-blog.form.input value='{{ old("last_name") }}' placeholder='Your Lastname' name="last_name" />
++                               <small class='error text-danger last_name'></small>
+                            </div>
+                        </div>
+
+                        <div class="row form-group">
+                            <div class="col-md-12">
+                                <!-- <label for="email">Email</label> -->
+                                <x-blog.form.input value='{{ old("email") }}' placeholder='Your Email' type='email' name="email" />
++                               <small class='error text-danger email'></small>
+                            </div>
+                        </div>
+
+                        <div class="row form-group">
+                            <div class="col-md-12">
+                                <!-- <label for="subject">Subject</label> -->
+                                <x-blog.form.input value='{{ old("subject") }}' required='false' name="subject" placeholder='Your Subject' />
++                               <small class='error text-danger subject'></small>
+                            </div>
+                        </div>
+
+                        <div class="row form-group">
+                            <div class="col-md-12">
+                                <!-- <label for="message">Message</label> -->
+                                <x-blog.form.textarea value='{{ old("message") }}' placeholder='What you want to tell us.' name="message" />
++                               <small class='error text-danger message'></small>
+                            </div>
+                        </div>
+                        <div class="form-group">
++                           <input type="submit" value="Send Message" class="btn btn-primary send-message-btn">
+                        </div>
+                    </form>
+
+                    <x-blog.message :status="'success'" />
+                </div>
+                <div class="col-md-6">
+                    <div id="map" class="colorlib-map"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endsection
+
++    @section('custom_js')
++
++    <script>
++        $(document).on("click", '.send-message-btn', (e) => {
++            e.preventDefault();
++            let $this = e.target;
++            
++            let csrf_token = $($this).parents("form").find("input[name='_token']").val()
++            let first_name = $($this).parents("form").find("input[name='first_name']").val()
++            let last_name = $($this).parents("form").find("input[name='last_name']").val()
++            let email = $($this).parents("form").find("input[name='email']").val()
++            let subject = $($this).parents("form").find("input[name='subject']").val()
++            let message = $($this).parents("form").find("textarea[name='message']").val()
++            let formData = new FormData();
++            formData.append('_token', csrf_token);
++            formData.append('first_name', first_name);
++            formData.append('last_name', last_name);
++            formData.append('email', email);
++            formData.append('subject', subject);
++            formData.append('message', message);
++            $.ajax({
++                url: "{{ route('contact.store') }}",
++                data: formData,
++                type: 'POST',
++                dataType: 'JSON',
++                processData:false,
++                contentType: false,
++                success: function(data){
++                    
++                    if(data.success)
++                    {
++                        $(".global-message").addClass('alert , alert-info')
++                        $(".global-message").fadeIn()
++                        $(".global-message").text(data.message)
++                        clearData($($this).parents("form"), ['first_name', 'last_name', 'email', 'subject', 'message']);
++                        setTimeout(() => {
++                            $(".global-message").fadeOut()
++                        }, 5000);
++                    }
++                    else 
++                    {
++                        for (const error in data.errors)
++                        {
++                            $("small."+error).text(data.errors[error]);
++                        }
++                    }
++                }
++            })
++        })
++    </script>
++
++    @endsection
+```
+
+Ajax での送信に対応するスタイルシートとJSファイルを読み込ませるため `resources/views/main_layouts/master.blade.php
+` を編集
+
+```diff
+    <!DOCTYPE HTML>
+    <html>
+        <head>
+            // ...
++           <link rel="stylesheet" href="{{ asset('css/mystyle.css') }}">
+
+            // ...
++           <script src="{{ asset('js/functions.js') }}"></script>
+            @yield('custom_js')
+        </body>
+    </html>
+```
+
+`message.blade.php` を編集
+
+```diff
+    @props(['status'])
+
+    @if(session()->has($status))
++   <div class="alert alert-{{ $status == 'success' ? 'info' : 'danger' }} global-message {{ $status == 'success' ? 'info' : 'error' }} ">
+        {{ session($status) }}
+    </div>
+    @endif
+```
+
+`post.blade.php` を以下のように編集
+
+```diff
+                // ...
+
+                <!-- SIDEBAR: start -->
+                <div class="col-md-4 animate-box">
+                    <div class="sidebar">
+                        <x-blog.side-categories :categories="$categories" />
+
+                        <x-blog.side-recent-posts :recentPosts="$recent_posts" />
+
+                        <x-blog.side-tags :tags="$tags" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endsection
+
++   @section('custom_js')
++
++   <script>
++       setTimeout(() => {
++           $(".global-message").fadeOut();
++       }, 5000);
++   </script>
++
++   @endsection
+```
+
+`public\css\mystyle.css` を新規に作成し以下のように編集
+
+```css
+.global-message {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    min-width: 500px;
+    border-radius: 50px;
+    color: #fff;
+    z-index: 2;
+}
+
+.global-message.info {
+    background: #4586ff;
+}
+
+.global-message.error {
+    background: #d81d1d;
+}
+```
+
+`public\js\functions.js` を新規に作成し以下のように編集
+
+```js
+let clearData = (parent, elements) => {
+
+    elements.forEach(element => {
+        $(parent).find("[name='" + element + "']").val('')
+    });
+
+}
+```
