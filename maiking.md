@@ -2271,3 +2271,488 @@ let clearData = (parent, elements) => {
 
 }
 ```
+
+## カテゴリーとタグページの作成
+
+カテゴリーページ及びタグページの作成をする。まず、CategoryController と TagController 作成する。以下のコマンドを入力。
+
+```
+php artisan make:controller CategoryController
+
+php artisan make:controller TagController
+```
+
+作成された `CategoryController.php` を開いて以下のように編集
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Category;
+use App\Models\Post;
+use App\Models\Tag;
+use Illuminate\Http\Request;
+
+class CategoryController extends Controller
+{
+    public function index()
+    {
+        return view('categories.index', [
+            'categories' => Category::withCount('posts')->paginate(100)
+        ]);
+    }
+
+    public function show(Category $category)
+    {
+        $recent_posts = Post::query()
+            ->latest()
+            ->take(5)
+            ->get();
+
+        $categories = Category::query()
+            ->withCount('posts')
+            ->orderBy('posts_count', 'desc')
+            ->get();
+
+        $tags = Tag::query()
+            ->take(50)
+            ->get();
+
+        return view('categories.show', [
+            'recent_posts' => $recent_posts,
+            'categories' => $categories,
+            'tags' => $tags,
+
+            'category' => $category,
+            'posts' => $category->posts()->paginate(10),
+        ]);
+    }
+}
+```
+
+`app\Http\Controllers\TagController.php` も同様に編集
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Category;
+use App\Models\Post;
+use App\Models\Tag;
+use Illuminate\Http\Request;
+
+class TagController extends Controller
+{
+    public function index()
+    {
+    }
+
+    public function show(Tag $tag)
+    {
+        $recent_posts = Post::query()
+            ->latest()
+            ->take(5)
+            ->get();
+
+        $categories = Category::query()
+            ->withCount('posts')
+            ->orderBy('posts_count', 'desc')
+            ->get();
+
+        $tags = Tag::query()
+            ->take(50)
+            ->get();
+
+        return view('tags.show', [
+            'recent_posts' => $recent_posts,
+            'categories' => $categories,
+            'tags' => $tags,
+
+            'posts' => $tag->posts()->paginate(10),
+            'tag' => $tag,
+        ]);
+    }
+}
+```
+
+上記コントローラーに対応する Blade を作成。`resources\views\categories\index.blade.php`、`resources\views\categories\show.blade.php`、`resources\views\tags\show.blade.php` をそれぞれ作成。
+
+`resources\views\categories\index.blade.php`
+
+```html
+@extends('main_layouts.master')
+
+@section('title', 'Categories | Home')
+
+@section('content')
+
+<div class="colorlib-blog">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12 categories-col">
+
+                <div class='row'>
+
+                    @forelse($categories as $category)
+                    <div class='col-md-3'>
+
+
+                        <div class="block-21 d-flex animate-box post">
+
+                            <div class="text">
+                                <h3 class="heading"><a href="{{ route('categories.show', $category) }}">{{ $category->name }}</a></h3>
+                                <div class="meta">
+                                    <div><a class='date' href="#"><span class="icon-calendar"></span> {{ $category->created_at->diffForHumans() }}</a></div>
+                                    <div><a href="#"><span class="icon-user2"></span> {{ $category->user->name }}</a></div>
+
+                                    <div class="posts-count">
+                                        <a href="{{ route('categories.show', $category) }}">
+                                            <span class="icon-tag"></span> {{ $category->posts_count }}
+                                        </a>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    @empty
+                    <p class='lead'>There are no categories to show.</p>
+                    @endforelse
+
+                </div>
+
+                {{ $categories->links() }}
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@endsection
+```
+
+`resources\views\categories\show.blade.php`
+
+```html
+@extends('main_layouts.master')
+
+@section('title', $category->name . ' Category | MyBlog')
+
+@section('content')
+
+<div class="colorlib-blog">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 posts-col">
+
+                @forelse($posts as $post)
+
+                <div class="block-21 d-flex animate-box post">
+                    <a
+                       href="{{ route('posts.show', $post) }}"
+                       class="blog-img"
+                       style="background-image: url({{ asset('storage/' . $post->image->path. '')  }});"></a>
+                    <div class="text">
+                        <h3 class="heading"><a href="{{ route('posts.show', $post) }}">{{ $post->title }}</a></h3>
+                        <p class="excerpt">{{ $post->excerpt }}</p>
+                        <div class="meta">
+                            <div><a class='date' href="#"><span class="icon-calendar"></span> {{ $post->created_at->diffForHumans() }}</a></div>
+                            <div><a href="#"><span class="icon-user2"></span> {{ $post->author->name }}</a></div>
+                            <div class="comments-count">
+                                <a href="{{ route('posts.show', $post) }}#post-comments">
+                                    <span class="icon-chat"></span> {{ $post->comments_count }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @empty
+                <p class='lead'>There are no posts related to this category.</p>
+
+                @endforelse
+
+                {{ $posts->links() }}
+
+            </div>
+
+            <!-- SIDEBAR: start -->
+            <div class="col-md-4 animate-box">
+                <div class="sidebar">
+
+                    <x-blog.side-categories :categories="$categories" />
+
+                    <x-blog.side-recent-posts :recentPosts="$recent_posts" />
+
+                    <x-blog.side-tags :tags="$tags" />
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@endsection
+```
+
+`resources\views\tags\show.blade.php`
+
+```html
+@extends('main_layouts.master')
+
+@section('title', $tag->name . ' Tag | MyBlog')
+
+@section('content')
+
+<div class="colorlib-blog">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 posts-col">
+
+                @forelse($posts as $post)
+
+                <div class="block-21 d-flex animate-box post">
+                    <a
+                       href="{{ route('posts.show', $post) }}"
+                       class="blog-img"
+                       style="background-image: url({{ asset('storage/' . $post->image->path. '')  }});"></a>
+                    <div class="text">
+                        <h3 class="heading"><a href="{{ route('posts.show', $post) }}">{{ $post->title }}</a></h3>
+                        <p class="excerpt">{{ $post->excerpt }}</p>
+                        <div class="meta">
+                            <div><a class='date' href="#"><span class="icon-calendar"></span> {{ $post->created_at->diffForHumans() }}</a></div>
+                            <div><a href="#"><span class="icon-user2"></span> {{ $post->author->name }}</a></div>
+                            <div class="comments-count">
+                                <a href="{{ route('posts.show', $post) }}#post-comments">
+                                    <span class="icon-chat"></span> {{ $post->comments_count }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @empty
+                <p class='lead'>There are no posts related to this tag.</p>
+
+                @endforelse
+
+                {{ $posts->links() }}
+
+            </div>
+
+            <!-- SIDEBAR: start -->
+            <div class="col-md-4 animate-box">
+                <div class="sidebar">
+
+                    <x-blog.side-categories :categories="$categories" />
+
+                    <x-blog.side-recent-posts :recentPosts="$recent_posts" />
+
+                    <x-blog.side-tags :tags="$tags" />
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@endsection
+```
+
+また、サイドバー等の ブレードファイルの調整も行っていく。
+
+`resources\views\components\blog\side-categories.blade.php`
+
+```diff
+@props(['categories'])
+
+<div class="side">
+    <h3 class="sidebar-heading">Categories</h3>
+
+    <div class="block-24">
+        <ul>
+            @foreach ($categories as $category)
++           <li><a href="{{ route('categories.show', $category) }}">{{ $category->name }} <span>{{ $category->posts_count }}</span></a></li>
+            @endforeach
+        </ul>
+    </div>
+</div>
+```
+
+`resources\views\components\blog\side-tags.blade.php`
+
+```diff
+@props(['tags'])
+
+<div class="side">
+    <h3 class="sidbar-heading">Tags</h3>
+    <div class="block-26">
+        <ul>
+            @foreach ($tags as $tag)
++           <li><a href="{{ route('tags.show', $tag) }}">{{ $tag->name }}</a></li>
+            @endforeach
+        </ul>
+    </div>
+</div>
+```
+
+`resources\views\main_layouts\master.blade.php`
+
+`<a href="blog.html" class="blog-img" style="background-image: url(/blog_template/images/blog-1.jpg);">`
+
+ の部分を 
+
+ `<a href="blog.html" class="blog-img" style="background-image: url({{ asset('blog_template/images/blog-1.jpg') }});">` 
+
+ に変更（asset ヘルパメソッドを使用）
+
+ 加えてメニューのドロップダウンの箇所を編集
+
+ `master.blade.php`
+
+ ```diff
+         <div id="page">
+            <nav class="colorlib-nav" role="navigation">
+
+                <div class="top-menu">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-md-2">
+                                <div id="colorlib-logo"><a href="{{ route('home') }}">Blog</a></div>
+                            </div>
+                            <div class="col-md-10 text-right menu-1">
+                                <ul>
+                                    <li><a href="{{ route('home') }}">Home</a></li>
++                                   <li class="has-dropdown">
++                                       <a href="{{ route('categories.index') }}">Categories</a>
++                                       <ul class="dropdown">
++                                           @foreach($navbar_categories as $category)
++                                           <li><a href="{{ route('categories.show', $category) }}">{{ $category->name }}</a></li>
++                                           @endforeach
++                                       </ul>
++                                   </li>
+                                    <li><a href="{{ route('about') }}">About</a></li>
+                                    <li><a href="{{ route('contact.create') }}">Contact</a></li>
+ ```
+
+`web.php` にルートの追加
+
+```php
+// ...
+
+Route::get('/categories/{category:slug}', [CategoryController::class, 'show'])
+    ->name('categories.show');
+
+Route::get('/categories', [CategoryController::class, 'index'])
+    ->name('categories.index');
+
+Route::get('/tags/{tag:name}', [TagController::class, 'show'])
+    ->name('tags.show');
+
+// ...
+```
+
+スタイルシートの追加。`public\css\mystyle.css` に以下の記述を追加
+
+```diff
+// ...
+
++ .categories-col .block-21 .text {
++     width: 100%;
++ }
+```
+
+`create_categories_table.php` を開き新規カラムの追加
+
+```diff
+    return new class extends Migration
+    {
+        /**
+         * Run the migrations.
+         *
+         * @return void
+         */
+        public function up()
+        {
+            Schema::create('categories', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('slug')->unique();
++               $table->foreignId('user_id')->constrained();
+                $table->timestamps();
+            });
+        }
+```
+
+`database\seeders\DatabaseSeeder.php` を開きシーダーの位置を調整。また `user_id`カラムの追加
+
+```diff
+    // ...
+
+-   $category = Category::create([
+-       'name' => 'Education',
+-       'slug' => 'education'
+-   ]);
+
+    $user = $role2->users()->create([
+        'name' => 'admin',
+        'email' => 'admin@example.com',
+        'password' => Hash::make('password'),
+        'status' => 1,
+    ]);
+
++   $category = Category::create([
++       'name' => 'Education',
++       'slug' => 'education',
++       'user_id' => $user->id,
++   ]);
+```
+
+リレーションの設定
+
+`app\Models\Category.php`
+
+```diff
+class Category extends Model
+{
+    // ...
+
++   public function user()
++   {
++       return $this->belongsTo(User::class);
++   }
+}
+```
+
+`app\Models\User.php`
+
+```diff
+class User extends Authenticatable
+{
+    // ...
+
++   public function categories()
++   {
++       return $this->hasMany(Category::class);
++   }
+}
+```
+
+`app\Providers\AppServiceProvider.php` を編集
+
+```diff
+class AppServiceProvider extends ServiceProvider
+{
+    // ...
+
+    public function boot()
+    {
+        Paginator::useBootstrap();
+
++       $categories = Category::withCount('posts')->orderBy('posts_count', 'DESC')->take(10)->get();
++       View::share('navbar_categories', $categories);
+    }
+}
+```

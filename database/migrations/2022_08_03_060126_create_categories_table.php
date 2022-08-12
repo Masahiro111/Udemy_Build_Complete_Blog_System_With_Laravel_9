@@ -17,6 +17,7 @@
                 $table->id();
                 $table->string('name');
                 $table->string('slug')->unique();
+                $table->foreignId('user_id')->constrained();
                 $table->timestamps();
             });
         }

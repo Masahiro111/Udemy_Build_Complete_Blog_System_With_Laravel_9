@@ -50,16 +50,17 @@ class DatabaseSeeder extends Seeder
             'name' => 'ruby',
         ]);
 
-        $category = Category::create([
-            'name' => 'Education',
-            'slug' => 'education'
-        ]);
-
         $user = $role2->users()->create([
             'name' => 'admin',
             'email' => 'admin@example.com',
             'password' => Hash::make('password'),
             'status' => 1,
+        ]);
+
+        $category = Category::create([
+            'name' => 'Education',
+            'slug' => 'education',
+            'user_id' => $user->id,
         ]);
 
         $post = $user->posts()->create([
