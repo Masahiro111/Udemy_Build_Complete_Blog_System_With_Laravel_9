@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AboutController;
+use App\Http\Controllers\AdminControllers\DashboardController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\HomeController;
@@ -19,12 +20,10 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// User Routes
+
 Route::get('/', [HomeController::class, 'index'])
     ->name('home');
-
-// Route::get('/', function () {
-//     return view('home');
-// })->name('home');
 
 Route::get('/post/{post:slug}', [PostController::class, 'show'])
     ->name('posts.show');
@@ -49,14 +48,11 @@ Route::get('/categories', [CategoryController::class, 'index'])
 Route::get('/tags/{tag:name}', [TagController::class, 'show'])
     ->name('tags.show');
 
-
-
-// Route::get('/contact', function () {
-//     return view('contact');
-// })->name('contact');
-
-// Route::get('/dashboard', function () {
-//     return view('dashboard');
-// })->middleware(['auth'])->name('dashboard');
-
 require __DIR__ . '/auth.php';
+
+
+
+// Admin Dashboard Routes
+
+Route::get('/admin', [DashboardController::class, 'index'])
+    ->name('admin.index');

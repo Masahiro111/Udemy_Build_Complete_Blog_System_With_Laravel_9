@@ -2756,3 +2756,73 @@ class AppServiceProvider extends ServiceProvider
     }
 }
 ```
+
+## Admin パネルの作成
+
+Admin パネルを作成する。`web.php` に Admin パネル用のルート設定を行うために以下のコードを追加。
+
+```diff
+// Admin Dashboard Routes
+
++ Route::get('/admin', [DashboardController::class, 'index'])
++    ->name('admin.index');
+```
+
+Admin パネル用のコントローラーを作成。以下のコマンドを入力。
+
+```
+php artisan make:controller DashboardController
+```
+
+作成された `app\Http\Controllers\AdminControllers\DashboardController.php` を編集
+
+```diff
+    // ...
+
+    class DashboardController extends Controller
+    {
++       public function index()
++       {
++           return view('admin_dashboard.index');
++       }
+}
+```
+
+Udemy から Admin パネル用の素材を DL してくる。`public` フォルダ内に `admin_dashboard_assets` フォルダを新規に作成。DL したフォルダ内の `public/asetts`内のフォルダとファイルをすべてコピーして、新規に作成した`admin_dashboard_assets` フォルダにまるごとコピー。
+
+コピーしたファイル数が多いので `.gitignore` を編集。以下を追加
+
+```diff
+// ...
+
++ /public/admin_dashboard_assets/
+```
+
+`resources\views` に `admin_dashboard` フォルダを作成。作成したフォルダに DL したフォルダ内の `resources/view` にある `index.blade.php` と `layouts` フォルダをコピーして貼り付け
+
+結果、以下の様なフォルダ構造になる
+
+```
+|- resources
+    ∟ views
+        ∟ admin_dashboard
+            |- layouts
+            |    |- app.blade.php
+            |    |- header.blade.php
+            |    ∟ nav.blade.php
+            ∟ index.blade.php
+```
+
+コピーした `index.blade.php` を編集。冒頭を編集
+
+```diff
+- @extends("layouts.app")
++ @extends("admin_dashboard.layouts.app")
+```
+
+また、`index.blade.php`, `app.blade.php`, `header.blade.php`, `nav.blade.php` のすべてで以下のように asset 関数を使用した形式に編集。
+
+```diff
+- <link href="blog-template/plugins/simplebar/css/simplebar.css'" rel="stylesheet" />
++ <link href="{{ asset('admin_dashboard_assets/plugins/simplebar/css/simplebar.css') }}" rel="stylesheet" />
+```
