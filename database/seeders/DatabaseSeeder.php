@@ -31,11 +31,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $role2 = Role::query()->create([
-            'name' => 'author',
+            'name' => 'admin',
         ]);
 
         $role3 = Role::query()->create([
-            'name' => 'admin',
+            'name' => 'author',
         ]);
 
         $tag1 = Tag::query()->create([

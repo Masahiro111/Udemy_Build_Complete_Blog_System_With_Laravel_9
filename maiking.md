@@ -2804,13 +2804,13 @@ Udemy から Admin パネル用の素材を DL してくる。`public` フォル
 
 ```
 |- resources
-    ∟ views
-        ∟ admin_dashboard
-            |- layouts
-            |    |- app.blade.php
-            |    |- header.blade.php
-            |    ∟ nav.blade.php
-            ∟ index.blade.php
+|    ∟ views
+|        ∟ admin_dashboard
+|            |- layouts
+|            |    |- app.blade.php
+|            |    |- header.blade.php
+|            |    ∟ nav.blade.php
+|            ∟ index.blade.php
 ```
 
 コピーした `index.blade.php` を編集。冒頭を編集
@@ -2826,3 +2826,140 @@ Udemy から Admin パネル用の素材を DL してくる。`public` フォル
 - <link href="blog-template/plugins/simplebar/css/simplebar.css'" rel="stylesheet" />
 + <link href="{{ asset('admin_dashboard_assets/plugins/simplebar/css/simplebar.css') }}" rel="stylesheet" />
 ```
+
+## ミドルウェアによるアクセス制限の作成
+
+管理者用のルートのアクセス制限を設定するため、専用のミドルウェアを作成。以下のコマンドを入力
+
+```
+php artisan make:middleware IsAdmin
+```
+
+作成された `app\Http\Middleware\IsAdmin.php` を編集
+
+```diff
+    // ...
+
+    class IsAdmin
+    {
+        public function handle(Request $request, Closure $next)
+        {
++           if (auth()->user()->role->name === 'admin') {
++               return $next($request);
++           }
++
++           abort(403);
+        }
+    }
+```
+
+ミドルウェアをアプリで有効にするために `app\Http\Kernel.php` に作成したミドルウェアを定義
+
+```diff
+class Kernel extends HttpKernel
+{
+    // ...
+
+    protected $routeMiddleware = [
+        // ...
++       'isAdmin' => \App\Http\Middleware\IsAdmin::class,
+    ];
+}
+```
+
+続けて `web.php` を編集
+
+```diff
+// Admin Dashboard Routes
+
+-   Route::get('/admin', [DashboardController::class, 'index'])
+-       ->name('admin.index');
+
++   Route::prefix('admin')->name('admin.')->middleware(['auth', 'isAdmin'])->group(function () {
++       Route::get('/', [DashboardController::class, 'index'])
++           ->name('index');
++   });
+```
+
+シーダーファイルを以下のように編集
+
+```
+class DatabaseSeeder extends Seeder
+{
+    public function run()
+    {
+        $role1 = Role::query()->create([
+            'name' => 'user',
+        ]);
+
+        $role2 = Role::query()->create([
+            'name' => 'admin',
+        ]);
+
+        $role3 = Role::query()->create([
+            'name' => 'author',
+        ]);
+
+        $tag1 = Tag::query()->create([
+            'name' => 'php',
+        ]);
+
+        $tag2 = Tag::query()->create([
+            'name' => 'c++',
+        ]);
+
+        $tag3 = Tag::query()->create([
+            'name' => 'ruby',
+        ]);
+
+        $user = $role2->users()->create([
+            'name' => 'admin',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('password'),
+            'status' => 1,
+        ]);
+
+        $category = Category::create([
+            'name' => 'Education',
+            'slug' => 'education',
+            'user_id' => $user->id,
+        ]);
+
+        $post = $user->posts()->create([
+            'title' => 'This is title',
+            'slug' => 'This is slug',
+            'excerpt' => 'This is excerpt',
+            'body' => 'This is content',
+            'category_id' => 1,
+        ]);
+
+        $post->comments()->create([
+            'the_comment' => '1st subaru',
+            'user_id' => $user->id,
+        ]);
+
+        $post->comments()->create([
+            'the_comment' => '2st subaru',
+            'user_id' => $user->id,
+        ]);
+
+        $post->image()->create([
+            'name' => 'post file',
+            'extension' => 'jpg',
+            'path' => 'images/' . rand(0, 10) . '.jpg',
+        ]);
+
+        $user->image()->create([
+            'name' => 'user file',
+            'extension' => 'jpg',
+            'path' => 'images/' . rand(0, 10) . '.jpg',
+        ]);
+
+        $post->tags()->attach([
+            $tag1->id, $tag2->id, $tag3->id
+        ]);
+    }
+}
+```
+
+マイグレートを行う。
