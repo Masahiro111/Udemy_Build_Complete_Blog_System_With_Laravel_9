@@ -2990,3 +2990,690 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'isAdmin'])->group(f
 +       });
 });
 ```
+
+`AdminPostsController` を作成するために以下のコマンドを入力
+
+```
+php artisan make:controller AdminPostsController -r
+```
+
+作成されたコントローラーを以下のように編集
+
+```php
+// ...
+
+class AdminPostsController extends Controller
+{
+    public function index()
+    {
+        return view('admin_dashboard.posts.index', [
+            'posts' => Post::with('category')->get(),
+        ]);
+    }
+
+    public function create()
+    {
+        return view('admin_dashboard.posts.create', [
+            'categories' => Category::query()->pluck('name', 'id'),
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|max:200',
+            'slug' => 'required|max:200',
+            'excerpt' => 'required|max:300',
+            'category_id' => 'required|numeric',
+            'thumbnail' => 'required|file|mimes:jpg,png,webp,svg,jpeg|dimensions:max_width=300,max_height=227',
+            'body' => 'required',
+        ]);
+
+        $validated['user_id'] = auth()->id();
+        $post = Post::query()->create($validated);
+
+        if ($request->has('thumbnail')) {
+            $thumbnail = $request->file('thumbnail');
+            $filename = $thumbnail->getClientOriginalName();
+            $file_extension = $thumbnail->getClientOriginalExtension();
+            $path = $thumbnail->store('images', 'public');
+
+            $post->image()->create([
+                'name' => $filename,
+                'extension' => $file_extension,
+                'path' => $path,
+            ]);
+
+            return redirect()
+                ->route('admin.posts.create')
+                ->with('success', 'Post has been created');
+        }
+    }
+
+    public function show($id)
+    {
+        //
+    }
+
+    public function edit(Post $post)
+    {
+        return view('admin_dashboard.posts.edit', [
+            'post' => $post,
+            'categories' => Category::query()->pluck('name', 'id'),
+        ]);
+    }
+
+    public function update(Request $request, Post $post)
+    {
+        $validated = $request->validate([
+            'title' => 'required|max:200',
+            'slug' => 'required|max:200',
+            'excerpt' => 'required|max:300',
+            'category_id' => 'required|numeric',
+            'thumbnail' => 'nullable|file|mimes:jpg,png,webp,svg,jpeg|dimensions:max_width=300,max_height=227',
+            'body' => 'required',
+        ]);
+
+        $post->update($validated);
+
+        if ($request->has('thumbnail')) {
+            $thumbnail = $request->file('thumbnail');
+            $filename = $thumbnail->getClientOriginalName();
+            $file_extension = $thumbnail->getClientOriginalExtension();
+            $path = $thumbnail->store('images', 'public');
+
+            $post->image()->update([
+                'name' => $filename,
+                'extension' => $file_extension,
+                'path' => $path,
+            ]);
+
+            return redirect()
+                ->route('admin.posts.edit', $post)
+                ->with('success', 'Post has been updated.');
+        }
+    }
+
+    public function destroy(Post $post)
+    {
+        $post->delete();
+
+        return redirect()
+            ->route('admin.posts.index')
+            ->with('success', 'Post has been Deleted.');
+    }
+}
+```
+
+`create_posts_table.php` を編集。`view` カラムと `status` カラムの追加
+
+```diff
+    // ...
+
+    public function up()
+    {
+        Schema::create('posts', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->string('slug')->unique();
+            $table->string('excerpt');
+            $table->text('body');
+
++           $table->integer('views')->default(0);
++           $table->string('status')->default('published');
+
+            $table->foreignId('user_id')->constrained();
+            $table->timestamps();
+        });
+    }
+```
+
+`public/css` に `my_style.css` ファイルを新規に作成。および編集。
+
+```css
+.general-message {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    z-index: 5;
+    min-width: 500px;
+    border-radius: 50px;
+    color: #525252;
+} 
+```
+
+`resources/views/admin_dashboard/layouts/app.blade.php` を以下のように編集
+
+```diff
+    // ...
+
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
++   <meta name='csrf-token' content="{{ csrf_token() }}">
+    <!--favicon-->
+    <link rel="icon" href="{{ asset('admin_dashboard_assets/images/favicon-32x32.png') }}" type="image/png" />
+    <!--plugins-->
+
+    // ...
+    
+    <link rel="stylesheet" href="{{ asset('admin_dashboard_assets/css/dark-theme.css') }}" />
+    <link rel="stylesheet" href="{{ asset('admin_dashboard_assets/css/semi-dark.css') }}" />
+    <link rel="stylesheet" href="{{ asset('admin_dashboard_assets/css/header-colors.css') }}" />
+
++   <link rel="stylesheet" href="{{ asset('admin_dashboard_assets/css/my_style.css') }}" />
+    <title>Rocker - Bootstrap 5 Admin Dashboard Template</title>
+</head>
+
+<body>
++   @if(Session::has('success'))
++   <div class='general-message alert alert-info'>{{ Session::get('success') }}</div>
++   @endif
+
+    <!--wrapper-->
+    <div class="wrapper">
+        <!--start header -->
+
+        // ...
+```
+
+`resources/views/admin_dashboard/layouts/nav.blade.php` を以下のように編集
+
+```diff
+<!--sidebar wrapper -->
+<div class="sidebar-wrapper" data-simplebar="true">
+    <div class="sidebar-header">
+        // ...
+    </div>
+    <!--navigation-->
+    <ul class="metismenu" id="menu">
+
+        // ...
+
++       <li>
++           <a href="javascript:;" class="has-arrow">
++               <div class="parent-icon"><i class='bx bx-message-square-edit'></i>
++               </div>
++               <div class="menu-title">Posts</div>
++           </a>
++
++           <ul>
++               <li> <a href="{{ route('admin.posts.index') }}"><i class="bx bx-right-arrow-alt"></i>All Posts</a>
++               </li>
++               <li> <a href="{{ route('admin.posts.create') }}"><i class="bx bx-right-arrow-alt"></i>Add New Post</a>
++               </li>
++           </ul>
++       </li>
+
+        <li>
+            <a href="javascript:;" class="has-arrow">
+                <div class="parent-icon"><i class='bx bx-message-square-edit'></i>
+```
+
+`resources/views/admin_dashboard/posts/create.blade.php` を新規作成して以下のように編集
+
+```php
+@extends("admin_dashboard.layouts.app")
+
+@section("style")
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
+@endsection
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Posts</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="javascript:;"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">Posts</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body p-4">
+                <h5 class="card-title">Add New Post</h5>
+                <hr />
+
+                <form action="{{ route('admin.posts.store') }}" method='post' enctype='multipart/form-data'>
+                    @csrf
+
+                    <div class="form-body mt-4">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="border border-3 p-4 rounded">
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Post Title</label>
+                                        <input type="text" value='{{ old("title") }}' name='title' required class="form-control" id="inputProductTitle">
+
+                                        @error('title')
+                                        <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Post Slug</label>
+                                        <input type="text" value='{{ old("slug") }}' class="form-control" required name='slug' id="inputProductTitle">
+
+                                        @error('slug')
+                                        <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductDescription" class="form-label">Post Excerpt</label>
+                                        <textarea required class="form-control" name='excerpt' id="inputProductDescription" rows="3">{{ old("excerpt") }}</textarea>
+
+                                        @error('excerpt')
+                                        <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Post Category</label>
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <div class="rounded">
+                                                    <div class="mb-3">
+                                                        <select required name='category_id' class="single-select">
+                                                            @foreach($categories as $key => $category)
+                                                            <option value="{{ $key }}">{{ $category }}</option>
+                                                            @endforeach
+                                                        </select>
+
+                                                        @error('category_id')
+                                                        <p class='text-danger'>{{ $message }}</p>
+                                                        @enderror
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <label for="inputProductDescription" class="form-label">Post Thumbnail</label>
+                                                <input id='thumbnail' required name='thumbnail' id="file" type="file">
+
+                                                @error('thumbnail')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                                @enderror
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductDescription" class="form-label">Post Content</label>
+                                        <textarea name='body' id='post_content' class="form-control" id="inputProductDescription" rows="3">{{ old("body") }}</textarea>
+
+                                        @error('body')
+                                        <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <button class='btn btn-primary' type='submit'>Add Post</button>
+
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+<script src="{{ asset('admin_dashboard_assets/plugins/select2/js/select2.min.js') }}"></script>
+
+<script>
+    $(document).ready(function () {
+        
+        $('.single-select').select2({
+            theme: 'bootstrap4',
+            width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+            placeholder: $(this).data('placeholder'),
+            allowClear: Boolean($(this).data('allow-clear')),
+        });
+        $('.multiple-select').select2({
+            theme: 'bootstrap4',
+            width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+            placeholder: $(this).data('placeholder'),
+            allowClear: Boolean($(this).data('allow-clear')),
+        });
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/posts/edit.blade.php` を新規作成して以下のように編集
+
+```php
+@extends("admin_dashboard.layouts.app")
+
+@section("style")
+
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
+
+@endsection
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Posts</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="javascript:;"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">Posts</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body p-4">
+                <h5 class="card-title">Edit Post: {{ $post->title }}</h5>
+                <hr />
+
+                    <div class="form-body mt-4">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="border border-3 p-4 rounded">
+                                
+                                <form action="{{ route('admin.posts.update', $post) }}" method='post' enctype='multipart/form-data'>
+                                    @csrf
+                                    @method('PUT')
+
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Post Title</label>
+                                        <input type="text" value='{{ old("title", $post->title) }}' name='title' required class="form-control" id="inputProductTitle">
+
+                                        @error('title')
+                                        <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Post Slug</label>
+                                        <input type="text" value='{{ old("slug", $post->slug) }}' class="form-control" required name='slug' id="inputProductTitle">
+
+                                        @error('slug')
+                                        <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductDescription" class="form-label">Post Excerpt</label>
+                                        <textarea required class="form-control" name='excerpt' id="inputProductDescription" rows="3">{{ old("excerpt", $post->excerpt) }}</textarea>
+
+                                        @error('excerpt')
+                                        <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Post Category</label>
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <div class="rounded">
+                                                    <div class="mb-3">
+                                                        <select required name='category_id' class="single-select">
+                                                            @foreach($categories as $key => $category)
+                                                            <option {{ $post->category_id === $key ? 'selected' : '' }} value="{{ $key }}">{{ $category }}</option>
+                                                            @endforeach
+                                                        </select>
+
+                                                        @error('category_id')
+                                                        <p class='text-danger'>{{ $message }}</p>
+                                                        @enderror
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <div class='row'>
+
+                                            <div class='col-md-8'>
+
+
+                                                <div class="card">
+                                                    <div class="card-body">
+                                                        <label for="inputProductDescription" class="form-label">Post Thumbnail</label>
+                                                        <input id='thumbnail' name='thumbnail' id="file" type="file">
+
+                                                        @error('thumbnail')
+                                                        <p class='text-danger'>{{ $message }}</p>
+                                                        @enderror
+
+                                                    </div>
+                                                </div>
+
+                                            </div>
+
+                                            <div class='col-md-4 text-center'>
+                                                <img style='width: 100%' src="/storage/{{ $post->image ? $post->image->path : 'placeholders/thumbnail_placeholder.svg' }}" class='img-responsive' alt="Post Thumbnail">
+                                            </div>
+
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductDescription" class="form-label">Post Content</label>
+                                        <textarea name='body' id='post_content' class="form-control" id="inputProductDescription" rows="3">
+                                                {{ old("body", str_replace('../../../', '/', $post->body) ) }}
+                                            </textarea>
+
+                                        @error('body')
+                                        <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <button class='btn btn-primary' type='submit'>Update Post</button>
+                                </form>
+
+                                <form action="{{ route('admin.posts.destroy', $post) }}">
+                                    @csrf
+                                    @method('DELETE')
+
+                                    <button type='submit' class='btn btn-danger'>Delete Post</button>
+                                </form>
+
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+<script src="{{ asset('admin_dashboard_assets/plugins/Drag-And-Drop/dist/imageuploadify.min.js') }}"></script>
+<script src="{{ asset('admin_dashboard_assets/plugins/select2/js/select2.min.js') }}"></script>
+
+<script>
+    $(document).ready(function () {
+        
+        // $('#image-uploadify').imageuploadify();
+        
+        $('.single-select').select2({
+            theme: 'bootstrap4',
+            width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+            placeholder: $(this).data('placeholder'),
+            allowClear: Boolean($(this).data('allow-clear')),
+        });
+        $('.multiple-select').select2({
+            theme: 'bootstrap4',
+            width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+            placeholder: $(this).data('placeholder'),
+            allowClear: Boolean($(this).data('allow-clear')),
+        });
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/posts/index.blade.php` を編集して以下のように編集
+
+```php
+@extends("admin_dashboard.layouts.app")
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Posts</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="javascript:;"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">Posts</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-lg-flex align-items-center mb-4 gap-3">
+                    <div class="position-relative">
+                        <input type="text" class="form-control ps-5 radius-30" placeholder="Search Order"> <span class="position-absolute top-50 product-show translate-middle-y"><i class="bx bx-search"></i></span>
+                    </div>
+                    <div class="ms-auto"><a href="{{ route('admin.posts.create') }}" class="btn btn-primary radius-30 mt-2 mt-lg-0"><i class="bx bxs-plus-square"></i>Add New Post</a></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Post#</th>
+                                <th>Post Title</th>
+                                <th>Post Excerpt</th>
+                                <th>Category</th>
+                                <th>Created at</th>
+                                <th>Status</th>
+                                <th>Views</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($posts as $post)
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <input class="form-check-input me-3" type="checkbox" value="" aria-label="...">
+                                        </div>
+                                        <div class="ms-2">
+                                            <h6 class="mb-0 font-14">#P-{{ $post->id }}</h6>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $post->title }} </td>
+
+                                <td>{{ $post->excerpt }}</td>
+                                <td>{{ $post->category->name }}</td>
+                                <td>{{ $post->created_at->diffForHumans() }}</td>
+
+
+                                <td>
+                                    <div class="badge rounded-pill @if($post->status === 'published') {{ 'text-info bg-light-info' }} @elseif($post->status === 'draft') {{ 'text-warning bg-light-warning' }} @else {{ 'text-danger bg-light-danger' }} @endif p-2 text-uppercase px-3"><i class='bx bxs-circle align-middle me-1'></i>{{ $post->status }}</div>
+                                </td>
+
+                                <td>{{ $post->views }}</td>
+
+                                <td>
+                                    <div class="d-flex order-actions">
+                                        <a href="{{ route('admin.posts.edit', $post) }}" class=""><i class='bx bxs-edit'></i></a>
+                                        <a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $post->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                        <form method='post' action="{{ route('admin.posts.destroy', $post) }}" id='delete_form_{{ $post->id }}'>@csrf @method('DELETE')</form>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+
+@section("script")
+
+<script>
+    $(document).ready(function () {
+        
+            setTimeout(() => {
+                $(".general-message").fadeOut();
+            }, 5000);
+        });
+</script>
+@endsection 
+```
+
+`resources/views/components/blog/side-recent-posts.blade.php` を以下のように編集
+
+```diff
+    // ...
+
+    @foreach ($recentPosts as $recent_post)
+    <div class="f-blog">
+-        <a href="{{ route('posts.show', $recent_post) }}" class="blog-img" style="background-image: url({{ asset('storage/' . $recent_post->image->path ) }});">
++       <a
++          href="{{ route('posts.show', $recent_post) }}"
++          class="blog-img"
++          style="background-image: url({{ asset($recent_post->image ? 'storage/' . $recent_post->image->path : 'storage/placeholders/thumbnail_placeholder.svg' . '')  }});">
+        </a>
+        <div class="desc">
+            <p class="admin"><span>{{ $recent_post->created_at->diffForHumans() }}</span></p>
+```
