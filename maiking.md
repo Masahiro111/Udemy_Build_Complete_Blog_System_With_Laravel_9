@@ -2963,3 +2963,30 @@ class DatabaseSeeder extends Seeder
 ```
 
 マイグレートを行う。
+
+## 管理者画面での記事投稿の作成と更新
+
+まずはルートの設定から。以下のように編集
+
+```diff
+// Admin Dashboard Routes
+
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'isAdmin'])->group(function () {
+
+    Route::get('/', [DashboardController::class, 'index'])
+        ->name('index');
+
++   Route::prefix('/posts')
++       ->controller(AdminPostsController::class)
++       ->name('posts.')
++       ->group(function () {
++           Route::get('', 'index')->name('index');
++           Route::get('create', 'create')->name('create');
++           Route::post('', 'store')->name('store');
++           Route::get('{post}', 'show')->name('show');
++           Route::get('{post}/edit', 'edit')->name('edit');
++           Route::put('{post}', 'update')->name('update');
++           Route::delete('{post}', 'destroy')->name('destroy');
++       });
+});
+```

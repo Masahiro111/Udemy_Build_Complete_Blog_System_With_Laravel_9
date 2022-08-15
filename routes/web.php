@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AboutController;
+use App\Http\Controllers\AdminControllers\AdminPostsController;
 use App\Http\Controllers\AdminControllers\DashboardController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ContactController;
@@ -58,4 +59,17 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'isAdmin'])->group(f
 
     Route::get('/', [DashboardController::class, 'index'])
         ->name('index');
+
+    Route::prefix('/posts')
+        ->controller(AdminPostsController::class)
+        ->name('posts.')
+        ->group(function () {
+            Route::get('', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('', 'store')->name('store');
+            Route::get('{post}', 'show')->name('show');
+            Route::get('{post}/edit', 'edit')->name('edit');
+            Route::put('{post}', 'update')->name('update');
+            Route::delete('{post}', 'destroy')->name('destroy');
+        });
 });

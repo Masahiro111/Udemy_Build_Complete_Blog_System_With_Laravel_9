@@ -20,6 +20,9 @@ return new class extends Migration
             $table->string('excerpt');
             $table->text('body');
 
+            $table->integer('views')->default(0);
+            $table->string('status')->default('published');
+
             $table->foreignId('user_id')->constrained();
             $table->timestamps();
         });
