@@ -33,7 +33,7 @@ class AdminCategoriesController extends Controller
         Category::query()->create($validated);
 
         return redirect()
-            ->route('admin.categories.create')
+            ->route('admin.categories.index')
             ->with('success', 'Category has been created');
     }
 

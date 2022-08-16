@@ -3681,5 +3681,601 @@ class AdminPostsController extends Controller
 
 ## 管理者画面でのカテゴリー情報の登録と更新
 
+管理者画面にて、カテゴリー用の更新ページを作成する。以下のコマンドを入力してカテゴリー用のコントローラーを作成。
+
+```
+php artisan make:controller AdminControllers/AdminCategoriesController
+```
+
+作成されたコントローラーを開いて以下のように編集
+
+```php
+<?php
+
+namespace App\Http\Controllers\AdminControllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use App\Models\Category;
+
+class AdminCategoriesController extends Controller
+{
+    private $rules = [
+        'name' => 'required|min:3|max:30',
+        'slug' => 'required|unique:categories,slug'
+    ];
+
+    public function index()
+    {
+        return view('admin_dashboard.categories.index', [
+            'categories' => Category::with('user')->orderBy('id', 'DESC')->paginate(50)
+        ]);
+    }
+
+    public function create()
+    {
+        return view('admin_dashboard.categories.create');
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate($this->rules);
+        $validated['user_id'] = auth()->id();
+        Category::create($validated);
+
+        return redirect()->route('admin.categories.create')->with('success', 'Category has been Created.');
+    }
+
+    public function show(Category $category)
+    {
+        return view('admin_dashboard.categories.show', [
+            'category' => $category
+        ]);
+    }
+
+    public function edit(Category $category)
+    {
+        return view('admin_dashboard.categories.edit', [
+            'category' => $category
+        ]);
+    }
+
+    public function update(Request $request, Category $category)
+    {
+        $this->rules['slug'] = ['required', Rule::unique('categories')->ignore($category)];
+        $validated = $request->validate($this->rules);
+
+        $category->update($validated);
+
+        return redirect()->route('admin.categories.edit', $category)->with('success', 'Category has been Updated.');
+    }
+
+    public function destroy(Category $category)
+    {
+        $default_category_id = Category::where('name', 'Uncategorized')->first()->id;
+
+        if($category->name === 'Uncategorized')
+            abort(404);
+
+        $category->posts()->update(['category_id' => $default_category_id]);
+
+        $category->delete();
+        return redirect()->route('admin.categories.index')->with('success', 'Category has been Deleted.');
+    }
+}
+```
+
+次に `Category.php` モデルを編集
+
+```diff
+    // ...
+
+    class Category extends Model
+    {
+        use HasFactory;
+
+-       protected $fillable = ['name', 'slug'];
++       protected $fillable = ['name', 'slug' ,'user_id'];
+
+        public function posts()
+        {
+            // ...
+        }
+
+        // ...
+    }
+```
+
+カテゴリー用のページの Blade を作成。`resources/views/admin_dashboard` に `categories` フォルダを新規に作成し `create.blade.php`、`edit.blade.php`、`index.blade.php`、`show.blade.php` を作成する。
+
+`resources/views/admin_dashboard/categories/create.blade.php`
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Categories</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">All Categories</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body p-4">
+                <h5 class="card-title">Add New Category</h5>
+                <hr/>
+
+                <form action="{{ route('admin.categories.store') }}" method='post'>
+                    @csrf
+
+                    <div class="form-body mt-4">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="border border-3 p-4 rounded">
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Category Name</label>
+                                        <input type="text" value='{{ old("name") }}' name='name' required class="form-control" id="inputProductTitle">
+
+                                        @error('title')
+                                            <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Category Slug</label>
+                                        <input type="text" value='{{ old("slug") }}' class="form-control" required name='slug' id="inputProductTitle">
+
+                                        @error('slug')
+                                            <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <button class='btn btn-primary' type='submit'>Add Category</button>
+
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+<script>
+    $(document).ready(function () {
+        
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/categories/edit.blade.php` 
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Categories</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">Edit Category</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body p-4">
+                <h5 class="card-title">Edit Category: {{ $category->name }}</h5>
+                <hr/>
+
+                <form action="{{ route('admin.categories.update', $category) }}" method='post'>
+                    @csrf
+                    @method('PATCH')
+
+                    <div class="form-body mt-4">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="border border-3 p-4 rounded">
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Category Name</label>
+                                        <input type="text" value='{{ old("name", $category->name) }}' name='name' required class="form-control" id="inputProductTitle">
+
+                                        @error('title')
+                                            <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Category Slug</label>
+                                        <input type="text" value='{{ old("slug", $category->slug) }}' class="form-control" required name='slug' id="inputProductTitle">
+
+                                        @error('slug')
+                                            <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <button class='btn btn-primary' type='submit'>Update Category</button>
+
+                                    <a 
+                                    class='btn btn-danger'
+                                    onclick="event.preventDefault();document.getElementById('delete_category_{{ $category->id }}').submit()"
+                                    href="#">Delete Category</a>
+
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </form>
+
+                <form id='delete_category_{{ $category->id }}' method='post' action="{{ route('admin.categories.destroy', $category) }}">
+                    @csrf
+                    @method('DELETE')
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+<script>
+$(document).ready(function () {
+    
+    setTimeout(() => {
+        $(".general-message").fadeOut();
+    }, 5000);
+});
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/categories/index.blade.php`
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Categories</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">All Categories</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-lg-flex align-items-center mb-4 gap-3">
+                    <div class="position-relative">
+                        <input type="text" class="form-control ps-5 radius-30" placeholder="Search Order"> <span class="position-absolute top-50 product-show translate-middle-y"><i class="bx bx-search"></i></span>
+                    </div>
+                    <div class="ms-auto"><a href="{{ route('admin.categories.create') }}" class="btn btn-primary radius-30 mt-2 mt-lg-0"><i class="bx bxs-plus-square"></i>Add New Category</a></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Category#</th>
+                                <th>Category Name</th>
+                                <th>Creator</th>
+                                <th>Related Posts</th>
+                                <th>Created at</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($categories as $category)
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <input class="form-check-input me-3" type="checkbox" value="" aria-label="...">
+                                        </div>
+                                        <div class="ms-2">
+                                            <h6 class="mb-0 font-14">#P-{{ $category->id }}</h6>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $category->name }} </td>
+                                <td>{{ $category->user->name }}</td>
+                                <td>
+                                    <a class='btn btn-primary btn-sm' href="{{ route('admin.categories.show', $category) }}">Related Posts</a>
+                                </td>
+                                <td>{{ $category->created_at->diffForHumans() }}</td>
+                                <td>
+                                    <div class="d-flex order-actions">
+                                        <a href="{{ route('admin.categories.edit', $category) }}" class=""><i class='bx bxs-edit'></i></a>
+                                        <a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $category->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                        <form method='post' action="{{ route('admin.categories.destroy', $category) }}" id='delete_form_{{ $category->id }}'>@csrf @method('DELETE')</form>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class='mt-4'>
+                {{ $categories->links() }}
+                </div>
+
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+<script>
+    $(document).ready(function () {
+    
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/categories/index.blade.php`
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Categories</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">All Categories</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-lg-flex align-items-center mb-4 gap-3">
+                    <div class="position-relative">
+                        <input type="text" class="form-control ps-5 radius-30" placeholder="Search Order"> <span class="position-absolute top-50 product-show translate-middle-y"><i class="bx bx-search"></i></span>
+                    </div>
+                    <div class="ms-auto"><a href="{{ route('admin.categories.create') }}" class="btn btn-primary radius-30 mt-2 mt-lg-0"><i class="bx bxs-plus-square"></i>Add New Category</a></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Category#</th>
+                                <th>Category Name</th>
+                                <th>Creator</th>
+                                <th>Related Posts</th>
+                                <th>Created at</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($categories as $category)
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <input class="form-check-input me-3" type="checkbox" value="" aria-label="...">
+                                        </div>
+                                        <div class="ms-2">
+                                            <h6 class="mb-0 font-14">#P-{{ $category->id }}</h6>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $category->name }} </td>
+                                <td>{{ $category->user->name }}</td>
+                                <td>
+                                    <a class='btn btn-primary btn-sm' href="{{ route('admin.categories.show', $category) }}">Related Posts</a>
+                                </td>
+                                <td>{{ $category->created_at->diffForHumans() }}</td>
+                                <td>
+                                    <div class="d-flex order-actions">
+                                        <a href="{{ route('admin.categories.edit', $category) }}" class=""><i class='bx bxs-edit'></i></a>
+                                        <a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $category->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                        <form method='post' action="{{ route('admin.categories.destroy', $category) }}" id='delete_form_{{ $category->id }}'>@csrf @method('DELETE')</form>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class='mt-4'>
+                {{ $categories->links() }}
+                </div>
+
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+<script>
+    $(document).ready(function () {
+    
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/categories/show.blade.php`
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">{{ $category->name }} Posts</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">Category Posts</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-lg-flex align-items-center mb-4 gap-3">
+                    <div class="position-relative">
+                        <input type="text" class="form-control ps-5 radius-30" placeholder="Search Order"> <span class="position-absolute top-50 product-show translate-middle-y"><i class="bx bx-search"></i></span>
+                    </div>
+                    <div class="ms-auto"><a href="{{ route('admin.posts.create') }}" class="btn btn-primary radius-30 mt-2 mt-lg-0"><i class="bx bxs-plus-square"></i>Add New Post</a></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Post#</th>
+                                <th>Post Title</th>
+                                <th>Post Excerpt</th>
+                                <th>Category</th>
+                                <th>Created at</th>
+                                <th>Status</th>
+                                <th>Views</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($category->posts as $post)
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <input class="form-check-input me-3" type="checkbox" value="" aria-label="...">
+                                        </div>
+                                        <div class="ms-2">
+                                            <h6 class="mb-0 font-14">#P-{{ $post->id }}</h6>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $post->title }} </td>
+
+                                <td>{{ $post->excerpt }}</td>
+                                <td>{{ $post->category->name }}</td>
+                                <td>{{ $post->created_at->diffForHumans() }}</td>
+
+
+                                <td>
+                                    <div class="badge rounded-pill @if($post->status === 'published') {{ 'text-info bg-light-info' }} @elseif($post->status === 'draft') {{ 'text-warning bg-light-warning' }} @else {{ 'text-danger bg-light-danger' }} @endif p-2 text-uppercase px-3"><i class='bx bxs-circle align-middle me-1'></i>{{ $post->status }}</div>
+                                </td>
+
+                                <td>{{ $post->views }}</td>
+
+                                <td>
+                                    <div class="d-flex order-actions">
+                                        <a href="{{ route('admin.posts.edit', $post) }}" class=""><i class='bx bxs-edit'></i></a>
+                                        <a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $post->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                        <form method='post' action="{{ route('admin.posts.destroy', $post) }}" id='delete_form_{{ $post->id }}'>@csrf @method('DELETE')</form>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+<script>
+    $(document).ready(function () {
+    
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+
 ## 管理者画面でのコメント情報の登録と更新
 
