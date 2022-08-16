@@ -3677,3 +3677,9 @@ class AdminPostsController extends Controller
         <div class="desc">
             <p class="admin"><span>{{ $recent_post->created_at->diffForHumans() }}</span></p>
 ```
+
+
+## 管理者画面でのカテゴリー情報の登録と更新
+
+## 管理者画面でのコメント情報の登録と更新
+
