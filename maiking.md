@@ -4432,5 +4432,305 @@ $(document).ready(function () {
     });
 ```
 
+## 管理者画面でのタグ情報の登録と更新
+
+`app/Http/Controllers/AdminControllers/AdminPostsController.php` 
+
+
 ## 管理者画面でのコメント情報の登録と更新
 
+管理者画面でタグ情報の更新をする
+
+```diff
+    use App\Models\Category;
+    use App\Models\Post;
++   use App\Models\Tag;
+
+    class AdminPostsController extends Controller
+    {
+
+            // ...
+                    'path' => $path
+                ]);
+            }
+
++           $tags = explode(',', $request->input('tags'));
++           $tags_ids = [];
++           foreach($tags as $tag){
++               $tag_ob = Tag::create(['name' => trim($tag)]);
++               $tags_ids[] = $tag_ob->id;
++           }
++
++           if(count($tags_ids) > 0)
++               $post->tags()->sync( $tags_ids );
+
+            return redirect()->route('admin.posts.create')->with('success', 'Post has been created.');
+        }
+
+        // ...
+
+        public function edit(Post $post)
+        {
++           $tags = '';
++           foreach($post->tags as $key => $tag)
++           {
++               $tags .= $tag->name;
++               if($key !== count($post->tags) - 1)
++                   $tags .= ', ';
++           }
+
+            return view('admin_dashboard.posts.edit', [
+                'post' => $post,
++               'tags' => $tags,
+                'categories' => Category::pluck('name', 'id')
+            ]);
+        }
+
+        public function update(Request $request, Post $post)
+        {
+-           $this->rules['thumbnail'] = 'nullable|file|mimes:jpg,png,webp,svg,jpeg|dimensions:max_width=300,max_height=227';
++           $this->rules['thumbnail'] = 'nullable|file|mimes:jpg,png,webp,svg,jpeg|dimensions:max_width=800,max_height=300';
+            $validated = $request->validate($this->rules);
+
+            $post->update($validated);
+
+                    // ...
+
+                    'path' => $path
+                ]);
+            }
+
++           $tags = explode(',', $request->input('tags'));
++           $tags_ids = [];
++           foreach($tags as $tag){
++
++               $tag_exist = $post->tags()->where('name', trim($tag) )->count();
++               if($tag_exist == 0) {
++                   $tag_ob = Tag::create(['name' => $tag]);
++                   $tags_ids[] = $tag_ob->id;
++               }
++           }
++
++           if(count($tags_ids) > 0)
++               $post->tags()->syncWithoutDetaching( $tags_ids );
+
+            return redirect()->route('admin.posts.edit', $post)->with('success', 'Post has been updated.');
+        }
+
+        public function destroy(Post $post)
+        {
++           $post->tags()->delete();
+            $post->delete();
+            return redirect()->route('admin.posts.index')->with('success', 'Post has been Deleted.');
+        }
+```
+
+`app/Http/Controllers/AdminControllers/AdminTagsController.php` を作成。以下のコマンドを入力。
+
+```
+php artisan make:controller AdminTagsController.php
+```
+
+作成されたファイルを開き以下のように編集
+
+```php
+<?php
+
+namespace App\Http\Controllers\AdminControllers;
+
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+
+use App\Models\Tag;
+
+class AdminTagsController extends Controller
+{
+    public function index()
+    {
+        return view('admin_dashboard.tags.index', [
+            'tags' => Tag::with('posts')->paginate(50),
+        ]);
+    }
+
+
+    public function show(Tag $tag)
+    {
+        return view('admin_dashboard.tags.show', [
+            'tag' => $tag
+        ]);
+    }
+
+    public function destroy(Tag $tag)
+    {
+        $tag->posts()->detach();
+        $tag->delete();
+        return redirect()->route('admin.tags.index')->with('success', 'Tag has been Deleted.');
+    }
+}
+```
+
+`Tag` モデル編集。`app/Models/Tag.php`
+
+
+```
+    class Tag extends Model
+    {
+        use HasFactory;
+
++       protected $fillable = ['name'];
+
+        public function posts()
+        {
+            return $this->belongsToMany(Post::class);
+```
+
+`database/migrations/2021_08_08_204758_create_post_tag_table.php` を編集。
+
+```diff
+    Schema::create('post_tag', function (Blueprint $table) {
+        $table->id();
+
+-       $table->unsignedBigInteger('post_id');
+-       $table->unsignedBigInteger('tag_id');
++       $table->foreignId('post_id')->constrained()->onDelete('cascade');
++       $table->foreignId('tag_id');
+
+        $table->timestamps();
+    });
+```
+
+`resources/views/admin_dashboard/layouts/nav.blade.php` を編集
+
+```diff
+        // ...
+                    </ul>
+                </li>
+
++               <li>
++                   <a href="{{ route('admin.tags.index') }}">
++                   <div class="parent-icon"><i class='bx bx-purchase-tag'></i></div>
++                       <div class="menu-title">Tags</div>
++                   </a>
++               </li>
+
+
+            </ul>
+            <!--end navigation-->
+        </div>
+
+        // ...
+```
+
+`resources/views/admin_dashboard/posts/create.blade.php` を編集
+
+```diff
+    // ...
+
+    <link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+    <link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
+
++   <link href="{{ asset('admin_dashboard_assets/plugins/input-tags/css/tagsinput.css') }}" rel="stylesheet" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/5.10.0/tinymce.min.js" integrity="sha512-XNYSOn0laKYg55QGFv1r3sIlQWCAyNKjCa+XXF5uliZH+8ohn327Ewr2bpEnssV9Zw3pB3pmVvPQNrnCTRZtCg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    @endsection
+
+    // ...
+
+        </div>
+    </div>
+
++ <div class="mb-3">
++     <label class="form-label">Post Tags</label>
++     <input type="text" class="form-control" name='tags' data-role="tagsinput">
++ </div>
+
+    <div class="mb-3">
+        <div class="card">
+            <div class="card-body">
+
+    // ...
+    
+    @section("script")
+    <script src="{{ asset('admin_dashboard_assets/plugins/select2/js/select2.min.js') }}"></script>
++   <script src="{{ asset('admin_dashboard_assets/plugins/input-tags/js/tagsinput.js') }}"></script>
+
+    <script>
+        $(document).ready(function () {
+```
+
+`resources/views/admin_dashboard/posts/edit.blade.php` を編集
+
+```diff
+    <link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+    <link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
+
++   <link href="{{ asset('admin_dashboard_assets/plugins/input-tags/css/tagsinput.css') }}" rel="stylesheet" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/5.10.0/tinymce.min.js" integrity="sha512-XNYSOn0laKYg55QGFv1r3sIlQWCAyNKjCa+XXF5uliZH+8ohn327Ewr2bpEnssV9Zw3pB3pmVvPQNrnCTRZtCg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    @endsection
+
+    // ...
+
+                                                </div>
+                                            </div>
+
++                                           <div class="mb-3">
++                                               <label class="form-label">Post Tags</label>
++                                               <input type="text" class="form-control" value='{{ $tags }}' name='tags' data-role="tagsinput">
++                                           </div>
+
+                                            <div class="mb-3">
+                                                <div class='row'>
+
+    // ...
+                                            <div class="mb-3">
+                                                <label for="inputProductDescription" class="form-label">Post Content</label>
+                                                <textarea name='body' id='post_content' class="form-control" id="inputProductDescription" rows="3">
+-                                                   {{ old("body", str_replace('../../../', '/', $post->body) ) }}
++                                                  {{ old("body", str_replace('../../', '../../../', $post->body) ) }}
+                                                </textarea>
+
+                                                @error('body')
+                                                
+                                                // ...
+                                                
+                                            </div>
+
+                                            <button class='btn btn-primary' type='submit'>Update Post</button>
+
+-                                           <form action="{{ route('admin.posts.destroy', $post) }}">
+-                                               @csrf
+-                                               @method('DELETE')
+-
+-                                               <button type='submit' class='btn btn-danger'>Delete Post</button>
+-                                           </form>
++                                           <a 
++                                           class='btn btn-danger'
++                                           onclick="event.preventDefault();document.getElementById('delete_post_{{ $post->id }}').submit()"
++                                           href="#">Delete Post</a>
+
+                                        </div>
+                                    </div>
+                                    // ...
+                            </div>
+                        </form>
+
++                       <form method='post' id='delete_post_{{ $post->id }}' action="{{ route('admin.posts.destroy', $post) }}">
++                           @csrf
++                           @method('DELETE')
++                       </form>
+
+                    </div>
+                </div>
+
+                // ...
+
+    <script src="{{ asset('admin_dashboard_assets/plugins/Drag-And-Drop/dist/imageuploadify.min.js') }}"></script>
+    <script src="{{ asset('admin_dashboard_assets/plugins/select2/js/select2.min.js') }}"></script>
+
++   <script src="{{ asset('admin_dashboard_assets/plugins/input-tags/js/tagsinput.js') }}"></script>
+    <script>
+        $(document).ready(function () {
+```
