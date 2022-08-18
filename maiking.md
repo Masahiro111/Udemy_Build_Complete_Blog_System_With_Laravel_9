@@ -5476,3 +5476,121 @@ class AdminCommentsController extends Controller
 +           });
     });
 ```
+
+## 管理画面でのロールとパーミッション設定
+
+`app/Http/Controllers/AdminControllers/AdminRolesController.php` を新規に作成。以下のコマンド入力
+
+```
+php artisan make:contorlller AdminRolesController -r
+```
+
+作成したコントローラーを以下のように入力
+
+```php
+<?php
+
+namespace App\Http\Controllers\AdminControllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+
+use App\Models\Permission;
+use App\Models\Role;
+
+class AdminRolesController extends Controller
+{
+    private $rules = ['name' => 'required|unique:roles,name'];
+
+    public function index()
+    {
+        return view('admin_dashboard.roles.index', [
+            'roles' => Role::paginate(20),
+        ]);
+    }
+
+    public function create()
+    {
+        return view('admin_dashboard.roles.create', [
+            'permissions' => Permission::all()
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate($this->rules);
+        $permissions = $request->input('permissions');
+
+        $role = Role::create($validated);
+        $role->permissions()->sync( $permissions );
+
+        return redirect()->route('admin.roles.create')->with('success', 'Role has been created');
+    }
+
+    public function edit(Role $role)
+    {
+        return view('admin_dashboard.roles.edit', [
+            'role' => $role,
+            'permissions' => Permission::all()
+        ]);
+    }
+
+    public function update(Request $request, Role $role)
+    {
+        $this->rules['name'] = ['required', Rule::unique('roles')->ignore($role)];
+        $validated = $request->validate($this->rules);
+        $permissions = $request->input('permissions');
+
+        $role->update($validated);
+        $role->permissions()->sync( $permissions );
+
+        return redirect()->route('admin.roles.edit', $role)->with('success', 'Role has been updated');
+    }
+
+    public function destroy(Role $role)
+    {
+        $role->delete();
+        return redirect()->route('admin.roles.index')->with('success', 'Role has been deleted');
+    }
+}
+```
+
+ミドルウェアを作成。以下のコマンドを入力
+
+```
+php artisan make:middleware CheckPermission
+```
+
+作成されたミドルウェアを編集
+
+```diff
+    // ...
+
+    class CheckPermission
+    {
++       public function handle(Request $request, Closure $next)
++       {
++           // 1- get the route name
++           $route_name = $request->route()->getName();
++           // 2- get permissions for this authintecated person
++           $routes_arr = auth()->user()->role->permissions->toArray();
++           // 3- compare this route name with user permissions
++           foreach($routes_arr as $route)
++           {
++               // 4- if this route name is one of these permissions
++               if($route['name'] === $route_name)
++                   // 5- allow user to access
++                   return $next($request);
++           }
++           // 6- else about 403 Unauthoerized Access
++           abort(403, 'Access Denied | Unauthorized');
++        }
+    }
+```
+
+`Permission` モデルを作成。以下のコマンドを入力
+
+```
+php artisan make:model Permission -m
+```
