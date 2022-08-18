@@ -88,11 +88,23 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'isAdmin'])->group(f
         });
 
     Route::prefix('/tags')
-        ->controller(AdminCategoriesController::class)
+        ->controller(AdminTagsController::class)
         ->name('tags.')
         ->group(function () {
             Route::get('', 'index')->name('index');
             Route::get('{category}', 'show')->name('show');
             Route::delete('{category}', 'destroy')->name('destroy');
+        });
+
+    Route::prefix('/comments')
+        ->controller(AdminCommentsController::class)
+        ->name('comments.')
+        ->group(function () {
+            Route::get('', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('', 'store')->name('store');
+            Route::get('{comments}/edit', 'edit')->name('edit');
+            Route::put('{comments}', 'update')->name('update');
+            Route::delete('{comments}', 'destroy')->name('destroy');
         });
 });

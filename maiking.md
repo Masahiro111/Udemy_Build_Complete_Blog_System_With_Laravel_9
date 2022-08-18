@@ -4994,3 +4994,485 @@ class AdminTagsController extends Controller
 +           });
     });
 ```
+
+## 管理者画面でのコメントの更新と削除
+
+管理者画面にてコメントの更新と削除を行う。
+
+`app/Http/Controllers/AdminControllers/AdminCommentsController.php` を新規に作成。以下のコマンドを入力
+
+```
+php artisan make:controller AdminCommentsController -r
+```
+
+作成されたコントローラーを編集
+
+```php
+<?php
+
+namespace App\Http\Controllers\AdminControllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+use App\Models\Post;
+use App\Models\Comment;
+
+class AdminCommentsController extends Controller
+{
+    private $rules = [
+        'post_id' => 'required|numeric',
+        'the_comment' => 'required|min:3|max:1000'
+    ];
+
+    public function index()
+    {
+        return view('admin_dashboard.comments.index', [
+            'comments' => Comment::latest()->paginate(50)
+        ]);
+    }
+
+    public function create()
+    {
+        return view('admin_dashboard.comments.create', [
+            'posts' => Post::pluck('title', 'id')
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate($this->rules);
+        $validated['user_id'] = auth()->id();
+
+        Comment::create($validated);
+        return redirect()->route('admin.comments.create')->with('success', 'Comment has been added.');
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function edit(Comment $comment)
+    {
+        return view('admin_dashboard.comments.edit', [
+            'posts' => Post::pluck('title', 'id'),
+            'comment' => $comment
+        ]);
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, Comment $comment)
+    {
+        $validated = $request->validate($this->rules);
+        $comment->update($validated);
+        return redirect()->route('admin.comments.edit', $comment)->with('success', 'Comment has been updated.');
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(Comment $comment)
+    {
+        $comment->delete();
+        return redirect()->route('admin.comments.index')->with('success', 'Comment has been deleted.');
+    }
+}
+```
+
+`resources/views/admin_dashboard/comments/create.blade.php` を新規に作成して以下を入力
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("style")
+
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
+
+@endsection
+
+    @section("wrapper")
+    <!--start page wrapper -->
+    <div class="page-wrapper">
+        <div class="page-content">
+            <!--breadcrumb-->
+            <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+                <div class="breadcrumb-title pe-3">Comments</div>
+                <div class="ps-3">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0 p-0">
+                            <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">Comment</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+            <!--end breadcrumb-->
+
+            <div class="card">
+                <div class="card-body p-4">
+                    <h5 class="card-title">Add New Comment</h5>
+                    <hr/>
+
+                    <form action="{{ route('admin.comments.store') }}" method='post'>
+                        @csrf
+
+                        <div class="form-body mt-4">
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <div class="border border-3 p-4 rounded">
+
+                                        <div class="mb-3">
+                                            <label for="inputProductTitle" class="form-label">Related Post</label>
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <div class="rounded">
+                                                        <div class="mb-3">
+                                                            <select required name='post_id' class="single-select">
+                                                                @foreach($posts as $key => $post)
+                                                                <option value="{{ $key }}">{{ $post }}</option>
+                                                                @endforeach
+                                                            </select>
+
+                                                            @error('post_id')
+                                                                <p class='text-danger'>{{ $message }}</p>
+                                                            @enderror
+
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="inputProductDescription" class="form-label">Post Comment</label>
+                                            <textarea name='the_comment'  id='post_comment' class="form-control" id="inputProductDescription" rows="3">{{ old("the_comment") }}</textarea>
+
+                                            @error('the_comment')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <button class='btn btn-primary' type='submit'>Add Comment</button>
+
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+    <!--end page wrapper -->
+    @endsection
+
+@section("script")
+<script src="{{ asset('admin_dashboard_assets/plugins/select2/js/select2.min.js') }}"></script>
+
+<script>
+    $(document).ready(function () {
+        
+        $('.single-select').select2({
+            theme: 'bootstrap4',
+            width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+            placeholder: $(this).data('placeholder'),
+            allowClear: Boolean($(this).data('allow-clear')),
+        });
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/comments/edit.blade.php` を新規に作成して以下を入力
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("style")
+
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
+
+@endsection
+
+    @section("wrapper")
+    <!--start page wrapper -->
+    <div class="page-wrapper">
+        <div class="page-content">
+            <!--breadcrumb-->
+            <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+                <div class="breadcrumb-title pe-3">Comments</div>
+                <div class="ps-3">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0 p-0">
+                            <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">Comment</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+            <!--end breadcrumb-->
+
+            <div class="card">
+                <div class="card-body p-4">
+                    <h5 class="card-title">Add New Comment</h5>
+                    <hr/>
+
+                    <form action="{{ route('admin.comments.update', $comment) }}" method='post'>
+                        @csrf
+                        @method('PATCH')
+
+                        <div class="form-body mt-4">
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <div class="border border-3 p-4 rounded">
+
+                                        <div class="mb-3">
+                                            <label for="inputProductTitle" class="form-label">Related Post</label>
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <div class="rounded">
+                                                        <div class="mb-3">
+                                                            <select required name='post_id' class="single-select">
+                                                                @foreach($posts as $key => $post)
+                                                                <option {{ $comment->post_id === $key ? 'selected' : '' }} value="{{ $key }}">{{ $post }}</option>
+                                                                @endforeach
+                                                            </select>
+
+                                                            @error('post_id')
+                                                                <p class='text-danger'>{{ $message }}</p>
+                                                            @enderror
+
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="inputProductDescription" class="form-label">Post Comment</label>
+                                            <textarea name='the_comment'  id='post_comment' class="form-control" id="inputProductDescription" rows="3">{{ old("the_comment", $comment->the_comment) }}</textarea>
+
+                                            @error('the_comment')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <button class='btn btn-primary' type='submit'>Update Comment</button>
+
+                                        <a 
+                                        class='btn btn-danger'
+                                        onclick="event.preventDefault(); document.getElementById('comment_delete_form_{{ $comment->id }}').submit()"
+                                        href="#">Delete Comment</a>
+
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
+
+                    <form id='comment_delete_form_{{ $comment->id }}' method='post' action="{{ route('admin.comments.destroy', $comment) }}">@csrf @method('DELETE')</form>
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+    <!--end page wrapper -->
+    @endsection
+
+@section("script")
+<script src="{{ asset('admin_dashboard_assets/plugins/select2/js/select2.min.js') }}"></script>
+
+<script>
+    $(document).ready(function () {
+        
+        $('.single-select').select2({
+            theme: 'bootstrap4',
+            width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+            placeholder: $(this).data('placeholder'),
+            allowClear: Boolean($(this).data('allow-clear')),
+        });
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/comments/index.blade.php` を新規に作成して以下を入力
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+		@section("wrapper")
+		<!--start page wrapper -->
+		<div class="page-wrapper">
+			<div class="page-content">
+				<!--breadcrumb-->
+				<div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+					<div class="breadcrumb-title pe-3">Comments</div>
+					<div class="ps-3">
+						<nav aria-label="breadcrumb">
+							<ol class="breadcrumb mb-0 p-0">
+								<li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+								</li>
+								<li class="breadcrumb-item active" aria-current="page">All Comments</li>
+							</ol>
+						</nav>
+					</div>
+				</div>
+				<!--end breadcrumb-->
+
+				<div class="card">
+					<div class="card-body">
+						<div class="d-lg-flex align-items-center mb-4 gap-3">
+							<div class="position-relative">
+								<input type="text" class="form-control ps-5 radius-30" placeholder="Search Order"> <span class="position-absolute top-50 product-show translate-middle-y"><i class="bx bx-search"></i></span>
+							</div>
+						  <div class="ms-auto"><a href="{{ route('admin.comments.create') }}" class="btn btn-primary radius-30 mt-2 mt-lg-0"><i class="bx bxs-plus-square"></i>Add New Comment</a></div>
+						</div>
+						<div class="table-responsive">
+							<table class="table mb-0">
+								<thead class="table-light">
+									<tr>
+										<th>Comment#</th>
+										<th>Comment Author</th>
+                                        <th>Comment Body</th>
+                                        <th>View Comment</th>
+										<th>Created at</th>
+										<th>Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+                                    @foreach($comments as $comment)
+									<tr>
+										<td>
+											<div class="d-flex align-items-center">
+												<div>
+													<input class="form-check-input me-3" type="checkbox" value="" aria-label="...">
+												</div>
+												<div class="ms-2">
+													<h6 class="mb-0 font-14">#P-{{ $comment->id }}</h6>
+												</div>
+											</div>
+										</td>
+										<td>{{ $comment->user->name }} </td>
+                                        <td>{{ \Str::limit($comment->the_comment, 60) }} </td>
+                                        <td>
+                                            <a target='_blank' class='btn btn-primary btn-sm' href="{{ route('posts.show', $comment->post->slug) }}#comment_{{ $comment->id }}">View Comment</a>
+                                        </td>
+                                        <td>{{ $comment->created_at->diffForHumans() }}</td>
+                                        <td>
+											<div class="d-flex order-actions">
+												<a href="{{ route('admin.comments.edit', $comment) }}" class=""><i class='bx bxs-edit'></i></a>
+												<a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $comment->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                                <form method='post' action="{{ route('admin.comments.destroy', $comment) }}" id='delete_form_{{ $comment->id }}'>@csrf @method('DELETE')</form>
+                                            </div>
+										</td>
+									</tr>
+                                    @endforeach
+								</tbody>
+							</table>
+						</div>
+
+                        <div class='mt-4'>
+                        {{ $comments->links() }}
+                        </div>
+
+					</div>
+				</div>
+
+
+			</div>
+		</div>
+		<!--end page wrapper -->
+		@endsection
+
+
+@section("script")
+<script>
+    $(document).ready(function () {
+    
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/layouts/nav.blade.php` を編集
+
+```diff
+// ...
+                </li>
+
++               <li>
++                   <a href="javascript:;" class="has-arrow">
++                       <div class="parent-icon"><i class='bx bx-comment-dots'></i>
++                       </div>
++                       <div class="menu-title">Comments</div>
++                   </a>
++                   <ul>
++                       <li> <a href="{{ route('admin.comments.index') }}"><i class="bx bx-right-arrow-alt"></i>All Comments</a>
++                       </li>
++                       <li> <a href="{{ route('admin.comments.create') }}"><i class="bx bx-right-arrow-alt"></i>Add New Comment</a>
++                       </li>
++                   </ul>
++               </li>
+
+            </ul>
+            <!--end navigation-->
+        </div>
+        //...
+```
+
+`routes/web.php` を編集
+
+
+```diff
+    // Admin Dashboard Routes
+
+    Route::prefix('admin')->name('admin.')->middleware(['auth', 'isAdmin'])->group(function () {
+
+        // ...
+
++       Route::prefix('/comments')
++           ->controller(AdminCommentsController::class)
++           ->name('comments.')
++           ->group(function () {
++               Route::get('', 'index')->name('index');
++               Route::get('create', 'create')->name('create');
++               Route::post('', 'store')->name('store');
++               Route::get('{comments}/edit', 'edit')->name('edit');
++               Route::put('{comments}', 'update')->name('update');
++               Route::delete('{comments}', 'destroy')->name('destroy');
++           });
+    });
+```
