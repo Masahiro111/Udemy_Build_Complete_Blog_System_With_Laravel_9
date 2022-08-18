@@ -4434,12 +4434,7 @@ $(document).ready(function () {
 
 ## 管理者画面でのタグ情報の登録と更新
 
-`app/Http/Controllers/AdminControllers/AdminPostsController.php` 
-
-
-## 管理者画面でのコメント情報の登録と更新
-
-管理者画面でタグ情報の更新をする
+`app/Http/Controllers/AdminControllers/AdminPostsController.php` 管理者画面でタグ情報の更新をする
 
 ```diff
     use App\Models\Category;
@@ -4829,4 +4824,173 @@ class AdminTagsController extends Controller
         });
     </script>
 @endsection 
+```
+
+`resources/views/admin_dashboard/tags/show.blade.php` を新規に作成し編集
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">{{ $tag->name }} Posts</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">Tag Posts</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-lg-flex align-items-center mb-4 gap-3">
+                    <div class="position-relative">
+                        <input type="text" class="form-control ps-5 radius-30" placeholder="Search Order"> <span class="position-absolute top-50 product-show translate-middle-y"><i class="bx bx-search"></i></span>
+                    </div>
+                    <div class="ms-auto"><a href="{{ route('admin.posts.create') }}" class="btn btn-primary radius-30 mt-2 mt-lg-0"><i class="bx bxs-plus-square"></i>Add New Post</a></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Post#</th>
+                                <th>Post Title</th>
+                                <th>Post Excerpt</th>
+                                <th>Category</th>
+                                <th>Created at</th>
+                                <th>Status</th>
+                                <th>Views</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($tag->posts as $post)
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <input class="form-check-input me-3" type="checkbox" value="" aria-label="...">
+                                        </div>
+                                        <div class="ms-2">
+                                            <h6 class="mb-0 font-14">#P-{{ $post->id }}</h6>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $post->title }} </td>
+
+                                <td>{{ $post->excerpt }}</td>
+                                <td>{{ $post->category->name }}</td>
+                                <td>{{ $post->created_at->diffForHumans() }}</td>
+
+
+                                <td>
+                                    <div class="badge rounded-pill @if($post->status === 'published') {{ 'text-info bg-light-info' }} @elseif($post->status === 'draft') {{ 'text-warning bg-light-warning' }} @else {{ 'text-danger bg-light-danger' }} @endif p-2 text-uppercase px-3"><i class='bx bxs-circle align-middle me-1'></i>{{ $post->status }}</div>
+                                </td>
+
+                                <td>{{ $post->views }}</td>
+
+                                <td>
+                                    <div class="d-flex order-actions">
+                                        <a href="{{ route('admin.posts.edit', $post) }}" class=""><i class='bx bxs-edit'></i></a>
+                                        <a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $post->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                        <form method='post' action="{{ route('admin.posts.destroy', $post) }}" id='delete_form_{{ $post->id }}'>@csrf @method('DELETE')</form>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+
+@section("script")
+<script>
+    $(document).ready(function () {
+    
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/post.blade.php` を編集
+
+```diff
+    @extends('main_layouts.master')
+
+-  @section('title', 'MyBlog | This is single post')
++   @section('title', $post->title . ' | MyBlog')
+
+    @section('custom_css')
+
+        <style>
+            .class-single .desc img {
+                width: 100%;
+            }
+        </style>
+
+    @endsection
+
+    @section('content')
+
+    // ...
+
+    <div class="row row-pb-lg">
+        <div class="col-md-12 animate-box">
+            <div class="classes class-single">
+-               <div class="classes-img" style="background-image: url(/blog_template/images/classes-1.jpg);">
++               <div class="classes-img" style="background-image: url({{ asset($post->image ? 'storage/' . $post->image->path : 'storage/placeholders/thumbnail_placeholder.svg' . '')  }});">
+                </div>
+                <div class="desc desc2">
+-                   <h3><a href="#">Developing Mobile Apps</a></h3>
+-                   <p>When she reached the first hills of the Italic Mountains, she had a last view back on the skyline of her hometown Bookmarksgrove, the headline of Alphabet Village and the subline of her own road, the Line Lane. Pityful a rethoric question ran over her cheek, then she continued her way.</p>
+-                   <p>The Big Oxmox advised her not to do so, because there were thousands of bad Commas, wild Question Marks and devious Semikoli, but the Little Blind Text didn’t listen. She packed her seven versalia, put her initial into the belt and made herself on the way.</p>
+-                   <blockquote>
+-                       The Big Oxmox advised her not to do so, because there were thousands of bad Commas, wild Question Marks and devious Semikoli, but the Little Blind Text didn’t listen. She packed her seven versalia, put her initial into the belt and made herself on the way.
+-                   </blockquote>
+-                   <h3>Some Features</h3>
+-                   <p>The Big Oxmox advised her not to do so, because there were thousands of bad Commas, wild Question Marks and devious Semikoli, but the Little Blind Text didn’t listen. She packed her seven versalia, put her initial into the belt and made herself on the way.</p>
+-                    <p><a href="#" class="btn btn-primary btn-outline btn-lg">Live Preview</a> or <a href="#" class="btn btn-primary btn-lg">Download File</a></p>
++                   {!! $post->body !!}
+                </div>
+            </div>
+        </div>
+```
+
+`routes/web.php` を編集
+
+```diff
+    // Admin Dashboard Routes
+
+    Route::prefix('admin')->name('admin.')->middleware(['auth', 'isAdmin'])->group(function () {
+
++       Route::prefix('/tags')
++           ->controller(AdminCategoriesController::class)
++           ->name('tags.')
++           ->group(function () {
++               Route::get('', 'index')->name('index');
++               Route::get('{category}', 'show')->name('show');
++               Route::delete('{category}', 'destroy')->name('destroy');
++           });
+    });
 ```

@@ -86,4 +86,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'isAdmin'])->group(f
             Route::put('{category}', 'update')->name('update');
             Route::delete('{category}', 'destroy')->name('destroy');
         });
+
+    Route::prefix('/tags')
+        ->controller(AdminCategoriesController::class)
+        ->name('tags.')
+        ->group(function () {
+            Route::get('', 'index')->name('index');
+            Route::get('{category}', 'show')->name('show');
+            Route::delete('{category}', 'destroy')->name('destroy');
+        });
 });
