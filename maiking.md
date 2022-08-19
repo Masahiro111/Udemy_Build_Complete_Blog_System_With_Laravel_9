@@ -6159,3 +6159,5 @@ $(document).ready(function () {
         Route::resource('roles', AdminRolesController::class)->except('show');
     });
 ```
+
+## 管理者画面での User の更新
