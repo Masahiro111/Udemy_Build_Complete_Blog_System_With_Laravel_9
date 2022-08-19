@@ -5793,3 +5793,369 @@ class CreatePermissionsTable extends Migration
     </ul>
     <!--end navigation-->
 ```
+
+`resources/views/admin_dashboard/roles/create.blade.php` を編集
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section('style')
+<style>
+    .permission {
+        background-color: white;
+        padding: 5px 10px;
+        display: inline-block;
+        font-size: 15px;
+        margin: 10px 10px;
+        cursor: pointer;
+    }
+</style>
+@endsection
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Roles</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">All Roles</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body p-4">
+                <h5 class="card-title">Add New Role</h5>
+                <hr/>
+
+                <form action="{{ route('admin.roles.store') }}" method='post'>
+                    @csrf
+
+                    <div class="form-body mt-4">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="border border-3 p-4 rounded">
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Role Name</label>
+                                        <input type="text" value='{{ old("name") }}' name='name' required class="form-control" id="inputProductTitle">
+
+                                        @error('name')
+                                            <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Role Permissions</label>
+
+                                        <div class='row'>
+                                            @php 
+                                                $the_count = count($permissions); 
+                                                $start = 0;
+                                            @endphp
+
+                                            @for($j = 1; $j <= 3; $j++)
+                                            @php 
+                                                $end = round($the_count * ( $j / 3 ));
+                                            @endphp
+
+                                            <div class='col-md-4'>
+
+                                                @for($i = $start; $i < $end; $i++)
+                                                    <label class="permission">
+                                                    <input type="checkbox" name='permissions[]' value='{{ $permissions[$i]->id }}'> {{ $permissions[$i]->name }}
+                                                    </label>    
+
+                                                @endfor
+
+                                            </div>
+                                            @php 
+                                                $start = $end;
+                                            @endphp
+                                            @endfor
+
+                                        </div>
+                                    </div>
+
+                                    <button class='btn btn-primary' type='submit'>Add Role</button>
+
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+<script>
+$(document).ready(function () {
+    
+    setTimeout(() => {
+        $(".general-message").fadeOut();
+    }, 5000);
+});
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/roles/edit.blade.php` を編集
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section('style')
+<style>
+    .permission {
+        background-color: white;
+        padding: 5px 10px;
+        display: inline-block;
+        font-size: 15px;
+        margin: 10px 10px;
+        cursor: pointer;
+    }
+</style>
+@endsection
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Roles</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">All Roles</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body p-4">
+                <h5 class="card-title">Edit Role: {{ $role->name }}</h5>
+                <hr/>
+
+                <form action="{{ route('admin.roles.update', $role) }}" method='post'>
+                    @csrf
+                    @method('PATCH')
+
+                    <div class="form-body mt-4">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="border border-3 p-4 rounded">
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Role Name</label>
+                                        <input type="text" value='{{ old("name", $role->name) }}' name='name' required class="form-control" id="inputProductTitle">
+
+                                        @error('name')
+                                            <p class='text-danger'>{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="inputProductTitle" class="form-label">Role Permissions</label>
+
+                                        <div class='row'>
+                                            @php 
+                                                $the_count = count($permissions); 
+                                                $start = 0;
+                                            @endphp
+
+                                            @for($j = 1; $j <= 3; $j++)
+                                            @php 
+                                                $end = round($the_count * ( $j / 3 ));
+                                            @endphp
+
+                                            <div class='col-md-4'>
+
+                                                @for($i = $start; $i < $end; $i++)
+                                                    <label class="permission">
+                                                    <input {{ $role->permissions->contains( $permissions[$i]->id ) ? 'checked' : '' }} type="checkbox" name='permissions[]' value='{{ $permissions[$i]->id }}'> {{ $permissions[$i]->name }}
+                                                    </label>    
+
+                                                @endfor
+
+                                            </div>
+                                            @php 
+                                                $start = $end;
+                                            @endphp
+                                            @endfor
+
+                                        </div>
+                                    </div>
+
+                                    <button class='btn btn-primary' type='submit'>Update Role</button>
+
+                                    <a 
+                                    class='btn btn-danger'
+                                    onclick="event.preventDefault();document.getElementById('delete_role_{{ $role->id }}').submit()"
+                                    href="#">Delete Role</a>
+
+
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </form>
+
+                <form id='delete_role_{{ $role->id }}' method='post' action="{{ route('admin.roles.destroy', $role) }}">
+                    @csrf
+                    @method('DELETE')
+                </form>
+
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+<script>
+$(document).ready(function () {
+    
+    setTimeout(() => {
+        $(".general-message").fadeOut();
+    }, 5000);
+});
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/roles/index.blade.php` を編集
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Roles</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">All Roles</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-lg-flex align-items-center mb-4 gap-3">
+                    <div class="position-relative">
+                        <input type="text" class="form-control ps-5 radius-30" placeholder="Search Order"> <span class="position-absolute top-50 product-show translate-middle-y"><i class="bx bx-search"></i></span>
+                    </div>
+                    <div class="ms-auto"><a href="{{ route('admin.roles.create') }}" class="btn btn-primary radius-30 mt-2 mt-lg-0"><i class="bx bxs-plus-square"></i>Add New Role</a></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Role#</th>
+                                <th>Role Name</th>
+                                <th>Created at</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($roles as $role)
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <input class="form-check-input me-3" type="checkbox" value="" aria-label="...">
+                                        </div>
+                                        <div class="ms-2">
+                                            <h6 class="mb-0 font-14">#P-{{ $role->id }}</h6>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $role->name }} </td>
+                                <td>{{ $role->created_at->diffForHumans() }}</td>
+                                <td>
+                                    <div class="d-flex order-actions">
+                                        <a href="{{ route('admin.roles.edit', $role) }}" class=""><i class='bx bxs-edit'></i></a>
+                                        <a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $role->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                        <form method='post' action="{{ route('admin.roles.destroy', $role) }}" id='delete_form_{{ $role->id }}'>@csrf @method('DELETE')</form>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class='mt-4'>
+                {{ $roles->links() }}
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+
+<script>
+    $(document).ready(function () {
+    
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`routes/web.php` を編集
+
+```diff
+    // Admin Dashboard Routes
+
+-   Route::name('admin.')->prefix('admin')->middleware(['auth', 'isadmin'])->group(function(){
++   Route::name('admin.')->prefix('admin')->middleware(['auth', 'isadmin', 'check_permissions'])->group(function(){
+
+        Route::get('/', [DashboardController::class, 'index'])->name('index');
+        Route::post('upload_tinymce_image', [TinyMCEController::class, 'upload_tinymce_image'])->name('upload_tinymce_image');
+
+        // ...
+
+        Route::resource('categories', AdminCategoriesController::class);
+        Route::resource('tags', AdminTagsController::class)->only(['index', 'show', 'destroy']);
+        Route::resource('comments', AdminCommentsController::class)->except('show');
+
+        Route::resource('roles', AdminRolesController::class)->except('show');
+    });
+```

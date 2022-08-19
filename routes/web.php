@@ -107,4 +107,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'isAdmin'])->group(f
             Route::put('{comments}', 'update')->name('update');
             Route::delete('{comments}', 'destroy')->name('destroy');
         });
+
+    Route::prefix('/roles')
+        ->controller(AdminCommentsController::class)
+        ->name('roles.')
+        ->group(function () {
+            Route::get('', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('', 'store')->name('store');
+            Route::get('{role}/edit', 'edit')->name('edit');
+            Route::put('{role}', 'update')->name('update');
+            Route::delete('{role}', 'destroy')->name('destroy');
+        });
 });
