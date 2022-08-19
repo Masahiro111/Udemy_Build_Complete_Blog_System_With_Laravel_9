@@ -5594,3 +5594,202 @@ php artisan make:middleware CheckPermission
 ```
 php artisan make:model Permission -m
 ```
+
+作成された `app/Models/Permission.php` ファイルを編集
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+use App\Models\Role;
+
+class Permission extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['name'];
+
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class, 'permission_role')->withTimestamps();
+    }
+}
+```
+
+作成された `database/migrations/2021_10_31_202120_create_permissions_table.php` を編集
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+class CreatePermissionsTable extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('permissions', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('name');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('permissions');
+    }
+}
+```
+
+`app/Models/Role.php` を編集
+
+```diff
+    // ...
+
+    class Role extends Model
+    {
+        public function users(){
+            return $this->hasMany(User::class);
+        }
+
++       public function permissions()
++       {
++           return $this->belongsToMany(Permission::class, 'permission_role')->withTimestamps();
++       }
+    }
+```
+
+中間テーブル用のマイグレーションファイルを作成 `database/migrations/○○○○_create_pivot_table_permissions_roles.php` ファイルを編集
+
+```diff
+    class CreatePivotTablePermissionsRoles extends Migration
+    {
+        public function up()
+        {
+            Schema::create('permission_role', function (Blueprint $table) {
+                $table->id();
++               $table->foreignId('permission_id');
++               $table->foreignId('role_id');
+                $table->timestamps();
+            });
+        }
+
+        // ...
+    }
+```
+
+`database/migrations/2013_08_01_200529_create_roles_table.php` を編集
+
+```diff
+    // ...
+    {
+        Schema::create('roles', function (Blueprint $table) {
+            $table->id();
+-           $table->string('name');
++           $table->string('name')->unique();
+            $table->timestamps();
+        });
+    }
+```
+
+`database/seeders/DatabaseSeeder.php` を編集
+
+```diff
+        \App\Models\Role::factory(1)->create();
+        \App\Models\Role::factory(1)->create(['name' => 'admin']);
+
++       $blog_routes = Route::getRoutes();
++       $permissions_ids = [];
++       foreach($blog_routes as $route)
++       {
++           if(strpos($route->getName(), 'admin') !== false) {
++               $permission = \App\Models\Permission::create(['name' => $route->getName()]);
++               $permissions_ids[] = $permission->id;
++           }
++       }
++
++       \App\Models\Role::where('name', 'admin')->first()->permissions()->sync( $permissions_ids );
+
+        $users = \App\Models\User::factory(10)->create();
+        \App\Models\User::factory()->create([
+            'name' => 'ahmed',
+```
+
+`resources/views/admin_dashboard/categories/create.blade.php` を編集
+
+    ```diff                                            <label for="inputProductTitle" class="form-label">Category Name</label>
+        <input type="text" value='{{ old("name") }}' name='name' required class="form-control" id="inputProductTitle">
+
+-       @error('title')
++       @error('name')
+            <p class='text-danger'>{{ $message }}</p>
+        @enderror
+    </div>
+```
+
+`resources/views/admin_dashboard/layouts/nav.blade.php` を編集
+
+```diff
+    <!--navigation-->
+    <ul class="metismenu" id="menu">
+        <li>
+-           <a href="{{ url('index') }}" target="_blank">
++           <a href="{{ route('admin.index') }}">
+            <div class="parent-icon"><i class='bx bx-home-circle'></i></div>
+                <div class="menu-title">Dashboard</div>
+            </a>
+
+            // ...
+
+            </a>
+        </li>
+
+
+        <li>
+            <a href="javascript:;" class="has-arrow">
+                <div class="parent-icon"><i class='bx bx-comment-dots'></i>
+
+                // ...
+
+            </ul>
+        </li>
+
++       <hr>
++
++       <li>
++           <a href="javascript:;" class="has-arrow">
++               <div class="parent-icon"><i class='bx bx-key'></i>
++               </div>
++               <div class="menu-title">Roles</div>
++           </a>
++
++           <ul>
++               <li> <a href="{{ route('admin.roles.index') }}"><i class="bx bx-right-arrow-alt"></i>All Roles</a>
++               </li>
++               <li> <a href="{{ route('admin.roles.create') }}"><i class="bx bx-right-arrow-alt"></i>Add New Role</a>
++               </li>
++
++           </ul>
++       </li>                
+
+
+    </ul>
+    <!--end navigation-->
+```
