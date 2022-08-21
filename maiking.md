@@ -6986,6 +6986,7 @@ class AdminUsersController extends Controller
 ```diff
     // ...
     
+    public function destroy(User $user)
     {
         if($user->id === auth()->id())
             return redirect()->back()->with('error', 'You can not delete your self.');
