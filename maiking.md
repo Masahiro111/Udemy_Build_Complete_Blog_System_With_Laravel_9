@@ -6985,7 +6985,7 @@ class AdminUsersController extends Controller
 
 ```diff
     // ...
-    
+
     public function destroy(User $user)
     {
         if($user->id === auth()->id())
@@ -7000,12 +7000,186 @@ class AdminUsersController extends Controller
     }
 ```
 
+## コンタクトページの管理者画面用コントローラーとビューの作成
 
+### Finishing Admin Contacts Controller and Views 
 
+コンタクトページ用の管理者画面用コントローラーを作成。以下のコマンドを入力
 
+```
+php artisan make:contorller AdminControllers/AdminContactsController
+```
 
+作成されたファイルを以下のように編集
 
+```php
+<?php
 
+namespace App\Http\Controllers\AdminControllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+use App\Models\Contact;
+
+class AdminContactsController extends Controller
+{
+    public function index()
+    {
+        return view('admin_dashboard.contacts.index', [
+            'contacts' => Contact::all()
+        ]);
+    }
+
+    public function destroy(Contact $contact)
+    {
+        $contact->delete();
+        return redirect()->route('admin.contacts')->with('success', 'Contact has been Deleted.');
+    }
+}
+```
+
+`resources/views/admin_dashboard/contacts/index.blade.php` を作成し以下のように編集
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("style")
+<link href="{{ asset('admin_dashboard_assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet" />
+@endsection
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Contacts</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">All Contacts</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table id="example2" class="table table-striped table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>First Name</th>
+                                        <th>Last Name</th>
+                                        <th>Email</th>
+                                        <th>Subject</th>
+                                        <th>Message</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($contacts as $contact)
+                                    <tr>
+                                        <td>{{ $contact->first_name }}</td>
+                                        <td>{{ $contact->last_name }}</td>
+                                        <td>{{ $contact->email }}</td>
+                                        <td>{{ $contact->subject }}</td>
+                                        <td>{{ $contact->message }}</td>
+                                        <td>
+                                            <div class="d-flex order-actions">
+                                                <a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $contact->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                                <form method='post' action="{{ route('admin.contacts.destroy', $contact) }}" id='delete_form_{{ $contact->id }}'>@csrf @method('DELETE')</form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+@section("script")
+
+<script src="{{ asset('admin_dashboard_assets/plugins/datatable/js/jquery.dataTables.min.js') }}"></script>
+<script src="{{ asset('admin_dashboard_assets/plugins/datatable/js/dataTables.bootstrap5.min.js') }}"></script>
+<script>
+    $(document).ready(function() {
+        var table = $('#example2').DataTable( {
+            lengthChange: false,
+            buttons: ['excel']
+        } );
+        
+        table.buttons().container()
+            .appendTo( '#example2_wrapper .col-md-6:eq(0)' );
+    
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/layouts/nav.blade.php` を編集
+
+```diff
+    // ...
+
+            <li>
+                <a href="javascript:;" class="has-arrow">
+                    <div class="parent-icon"><i class='bx bx-user'></i>
+                    </div>
+                    <div class="menu-title">Users</div>
+                </a>
+                <ul>
+                    <li> <a href="{{ route('admin.users.index') }}"><i class="bx bx-right-arrow-alt"></i>All Users</a>
+                    </li>
+                    <li> <a href="{{ route('admin.users.create') }}"><i class="bx bx-right-arrow-alt"></i>Add New User</a>
+                    </li>
+                    
+                </ul>
+            </li>    
+
++           <li>
++               <a href="{{ route('admin.contacts') }}">
++               <div class="parent-icon"><i class='bx bx-mail-send'></i></div>
++                   <div class="menu-title">Contacts</div>
++               </a>
++           </li>
+
+        </ul>
+        <!--end navigation-->
+    </div>
+```
+
+`routes/web.php` を編集
+
+```diff
+    // Admin Dashboard Routes
+    Route::name('admin.')->prefix('admin')->middleware(['auth', 'check_permissions'])->group(function(){
+
+        // ...
+
++       Route::get('contacts', [AdminContactsController::class, 'index'])->name('contacts');
++       Route::delete('contacts/{contact}', [AdminContactsController::class, 'destroy'])->name('contacts.destroy');
+    });
+```
 
 
 
