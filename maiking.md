@@ -6161,3 +6161,837 @@ $(document).ready(function () {
 ```
 
 ## 管理者画面での User の更新
+
+管理画面で使用する `AdminUsersController.php` を作成する。以下のコマンドを入力
+
+```
+php artisan make:controller AdminControllers/AdminUsersController -r
+```
+
+作成されたファイルを以下のように編集
+
+```php
+<?php
+
+namespace App\Http\Controllers\AdminControllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
+
+use App\Models\Role;
+use App\Models\User;
+
+class AdminUsersController extends Controller
+{
+    private $rules = [
+        'name' => 'required|min:3',
+        'email' => 'required|email|unique:users,email',
+        'password' => 'required|min:8|max:20',
+        'image' => 'nullable|file|mimes:jpg,png,webp,svg,jpeg|dimensions:max_width=300,max_height=300',
+        'role_id' => 'required|numeric'
+    ];
+
+    public function index()
+    {
+        return view('admin_dashboard.users.index', [
+            'users' => User::with('role')->paginate('50')
+        ]);
+    }
+
+    public function create()
+    {
+        return view('admin_dashboard.users.create', [
+            'roles' => Role::pluck('name', 'id'),
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate($this->rules);
+        $validated['password'] = Hash::make($request->input('password'));
+
+        $user = User::create($validated);
+
+        if($request->has('image'))
+        {
+            $image = $request->file('image');
+
+            $filename = $image->getClientOriginalName();
+            $file_extension = $image->getClientOriginalExtension();
+            $path = $image->store('images', 'public');
+
+            $user->image()->create([
+                'name' => $filename,
+                'extension' => $file_extension,
+                'path' => $path
+            ]);
+        }
+
+        return redirect()->route('admin.users.create')->with('success', 'User has been created.');
+    }
+
+    public function edit(User $user)
+    {
+        return view('admin_dashboard.users.edit', [
+            'user' => $user,
+            'roles' => Role::pluck('name', 'id')
+        ]);
+    }
+
+    public function show(User $user)
+    {
+        return view('admin_dashboard.users.show',[
+            'user' => $user
+        ]);
+    }
+
+    public function update(Request $request, User $user)
+    {
+        $this->rules['password'] = 'nullable|min:3|max:20';
+        $this->rules['email'] = ['required', 'email', Rule::unique('users')->ignore($user)];
+
+        $validated = $request->validate($this->rules);
+
+        if($validated['password'] === null)
+            unset($validated['password']);
+        else 
+            $validated['password'] = Hash::make($request->input('password'));
+
+        $user->update($validated);
+
+        if($request->has('image'))
+        {
+            $image = $request->file('image');
+            $filename = $image->getClientOriginalName();
+            $file_extension = $image->getClientOriginalExtension();
+            $path = $image->store('images', 'public');
+
+            $user->image()->create([
+                'name' => $filename,
+                'extension' => $file_extension,
+                'path' => $path
+            ]);
+        }
+
+        return redirect()->route('admin.users.edit', $user)->with('success', 'User has been updated.');
+    }
+
+    public function destroy(User $user)
+    {
+        if($user->id === auth()->id())
+            return redirect()->back()->with('error', 'You can not delete your self.');
+
+        $user->delete();
+        return redirect()->route('admin.users.index')->with('success', 'User has been deleted.');
+    }
+}
+```
+
+`app/Http/Middleware/IsAdmin.php` ミドルウェアを削除して、その内容を `app/Http/Middleware/CheckPermission.php` に入力。
+
+```diff
+    // ...
+
+    {
+        public function handle(Request $request, Closure $next)
+        {
+    +       // admin has permissions for everything
+    +       if(auth()->user()->role->name === 'admin')
+    +           return $next($request);
+
+            // 1- get the route name
+            $route_name = $request->route()->getName();
+            // 2- get permissions for this authintecated person
+            $routes_arr = auth()->user()->role->permissions->toArray();
+            // 3- compare this route name with user permissions
+            foreach($routes_arr as $route)
+            {
+                // 4- if this route name is one of these permissions
+                if($route['name'] === $route_name)
+                    // 5- allow user to access
+                    return $next($request);
+            }
+            // 6- else about 403 Unauthoerized Access
+            abort(403, 'Access Denied | Unauthorized');
+            
+        }
+    }
+```
+
+以前のミドルウェアを削除。`app/Http/Kernel.php` を編集
+
+```diff
+            // ...
+
+            'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
+            'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
+            'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+-           'isadmin' => \App\Http\Middleware\IsAdmin::class,
+            'check_permissions' => \App\Http\Middleware\CheckPermission::class
+        ];
+    }
+```
+
+`resources/views/admin_dashboard/layouts/app.blade.php` を編集
+
+```diff
+        <div class='general-message alert alert-info'>{{ Session::get('success') }}</div>
+    @endif
+
++   @if(Session::has('error'))
++       <div class='general-message alert alert-danger'>{{ Session::get('error') }}</div>
++   @endif
+
+	<!--wrapper-->
+	<div class="wrapper">
+		<!--start header -->
+```
+
+`resources/views/admin_dashboard/layouts/nav.blade.php` を編集
+
+```diff
+                // ...
+
++               <li>
++                   <a href="javascript:;" class="has-arrow">
++                       <div class="parent-icon"><i class='bx bx-user'></i>
++                       </div>
++                       <div class="menu-title">Users</div>
++                   </a>
++
++                   <ul>
++                       <li> <a href="{{ route('admin.users.index') }}"><i class="bx bx-right-arrow-alt"></i>All Users</a>
++                       </li>
++                       <li> <a href="{{ route('admin.users.create') }}"><i class="bx bx-right-arrow-alt"></i>Add New User</a>
++                       </li>
++
++                   </ul>
++               </li>    
+
+
+            </ul>
+            <!--end navigation-->
+        </div>
+        <!--end sidebar wrapper -->
+```
+
+`resources/views/admin_dashboard/users/create.blade.php` を新規作成し編集
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("style")
+
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
+
+@endsection
+
+    @section("wrapper")
+    <!--start page wrapper -->
+    <div class="page-wrapper">
+        <div class="page-content">
+            <!--breadcrumb-->
+            <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+                <div class="breadcrumb-title pe-3">Users</div>
+                <div class="ps-3">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0 p-0">
+                            <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">New User</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+            <!--end breadcrumb-->
+
+            <div class="card">
+                <div class="card-body p-4">
+                    <h5 class="card-title">Add New User</h5>
+                    <hr/>
+
+                    <form action="{{ route('admin.users.store') }}" method='post' enctype='multipart/form-data'>
+                        @csrf
+
+                        <div class="form-body mt-4">
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <div class="border border-3 p-4 rounded">
+
+                                        <div class="mb-3">
+                                            <label for="input_name" class="form-label">Name</label>
+                                            <input name='name' type='text' class="form-control" id="input_name" value='{{ old("name") }}'>
+
+                                            @error('name')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="input_email" class="form-label">Email</label>
+                                            <input name='email' type='email' class="form-control" id="input_email" value='{{ old("email") }}'>
+
+                                            @error('email')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="input_password" class="form-label">Password</label>
+                                            <input name='password' type='password' class="form-control" id="input_password">
+
+                                            @error('password')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="input_image" class="form-label">Image</label>
+                                            <input name='image' type='file' class="form-control" id="input_image">
+
+                                            @error('image')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="inputProductTitle" class="form-label">User Role</label>
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <div class="rounded">
+                                                        <div class="mb-3">
+                                                            <select required name='role_id' class="single-select">
+                                                                @foreach($roles as $key => $role)
+                                                                <option value="{{ $key }}">{{ $role }}</option>
+                                                                @endforeach
+                                                            </select>
+
+                                                            @error('role_id')
+                                                                <p class='text-danger'>{{ $message }}</p>
+                                                            @enderror
+
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button class='btn btn-primary' type='submit'>Add User</button>
+
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+    <!--end page wrapper -->
+    @endsection
+
+@section("script")
+<script src="{{ asset('admin_dashboard_assets/plugins/select2/js/select2.min.js') }}"></script>
+
+<script>
+    $(document).ready(function () {
+        
+        $('.single-select').select2({
+            theme: 'bootstrap4',
+            width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+            placeholder: $(this).data('placeholder'),
+            allowClear: Boolean($(this).data('allow-clear')),
+        });
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/users/edit.blade.php` を新規作成し編集
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("style")
+
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+<link href="{{ asset('admin_dashboard_assets/plugins/select2/css/select2-bootstrap4.css') }}" rel="stylesheet" />
+
+@endsection
+
+    @section("wrapper")
+    <!--start page wrapper -->
+    <div class="page-wrapper">
+        <div class="page-content">
+            <!--breadcrumb-->
+            <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+                <div class="breadcrumb-title pe-3">Users</div>
+                <div class="ps-3">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0 p-0">
+                            <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">Edit User: {{ $user->name }}</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+            <!--end breadcrumb-->
+
+            <div class="card">
+                <div class="card-body p-4">
+                    <h5 class="card-title">Add New User</h5>
+                    <hr/>
+
+                    <form action="{{ route('admin.users.update', $user) }}" method='post' enctype='multipart/form-data'>
+                        @csrf
+                        @method('PATCH')
+
+                        <div class="form-body mt-4">
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <div class="border border-3 p-4 rounded">
+
+                                        <div class="mb-3">
+                                            <label for="input_name" class="form-label">Name</label>
+                                            <input name='name' type='text' class="form-control" id="input_name" value='{{ old("name", $user->name) }}'>
+
+                                            @error('name')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="input_email" class="form-label">Email</label>
+                                            <input name='email' type='email' class="form-control" id="input_email" value='{{ old("email", $user->email) }}'>
+
+                                            @error('email')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="input_password" class="form-label">Password</label>
+                                            <input name='password' type='password' class="form-control" id="input_password">
+
+                                            @error('password')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class='row'>
+                                            <div class='col-md-8'>
+                                                <div class="mb-3">
+                                                    <label for="input_image" class="form-label">Image</label>
+                                                    <input name='image' type='file' class="form-control" id="input_image">
+
+                                                    @error('image')
+                                                        <p class='text-danger'>{{ $message }}</p>
+                                                    @enderror
+                                                </div>
+                                            </div>
+                                            <div class='col-md-4'>
+                                                <div class='user-image'>
+                                                    <img src="{{ $user->image ? asset('storage/' . $user->image->path) : asset('storage/placeholders/user_placeholder.jpg') }}" alt="">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="inputProductTitle" class="form-label">User Role</label>
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <div class="rounded">
+                                                        <div class="mb-3">
+                                                            <select required name='role_id' class="single-select">
+                                                                @foreach($roles as $key => $role)
+                                                                <option {{ $user->role_id === $key ? 'selected' : '' }} value="{{ $key }}">{{ $role }}</option>
+                                                                @endforeach
+                                                            </select>
+
+                                                            @error('role_id')
+                                                                <p class='text-danger'>{{ $message }}</p>
+                                                            @enderror
+
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button class='btn btn-primary' type='submit'>Update User</button>
+
+                                        <a 
+                                        onclick='event.preventDefault(); document.getElementById("delete_user_{{ $user->id }}").submit()'
+                                        href="#"
+                                        class='btn btn-danger'>
+                                            Delete User
+                                        </a>
+
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
+
+                    <form id='delete_user_{{ $user->id }}' action="{{ route('admin.users.destroy', $user) }}" method='POST'>@csrf @method('DELETE')</form>
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+    <!--end page wrapper -->
+    @endsection
+
+@section("script")
+<script src="{{ asset('admin_dashboard_assets/plugins/select2/js/select2.min.js') }}"></script>
+
+<script>
+    $(document).ready(function () {
+        
+        $('.single-select').select2({
+            theme: 'bootstrap4',
+            width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+            placeholder: $(this).data('placeholder'),
+            allowClear: Boolean($(this).data('allow-clear')),
+        });
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/users/index.blade.php` を新規作成し編集
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+		@section("wrapper")
+		<!--start page wrapper -->
+		<div class="page-wrapper">
+			<div class="page-content">
+				<!--breadcrumb-->
+				<div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+					<div class="breadcrumb-title pe-3">Users</div>
+					<div class="ps-3">
+						<nav aria-label="breadcrumb">
+							<ol class="breadcrumb mb-0 p-0">
+								<li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+								</li>
+								<li class="breadcrumb-item active" aria-current="page">All Users</li>
+							</ol>
+						</nav>
+					</div>
+				</div>
+				<!--end breadcrumb-->
+
+				<div class="card">
+					<div class="card-body">
+						<div class="d-lg-flex align-items-center mb-4 gap-3">
+							<div class="position-relative">
+								<input type="text" class="form-control ps-5 radius-30" placeholder="Search Order"> <span class="position-absolute top-50 product-show translate-middle-y"><i class="bx bx-search"></i></span>
+							</div>
+						  <div class="ms-auto"><a href="{{ route('admin.categories.create') }}" class="btn btn-primary radius-30 mt-2 mt-lg-0"><i class="bx bxs-plus-square"></i>Add New Category</a></div>
+						</div>
+						<div class="table-responsive">
+							<table class="table mb-0">
+								<thead class="table-light">
+									<tr>
+										<th>User#</th>
+										<th>Image</th>
+										<th>Name</th>
+										<th>Email</th>
+										<th>Role</th>
+										<th>Related Posts</th>
+										<th>Created at</th>
+										<th>Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+                                    @foreach($users as $user)
+									<tr>
+										<td>
+											<div class="d-flex align-items-center">
+												<div>
+													<input class="form-check-input me-3" type="checkbox" value="" aria-label="...">
+												</div>
+												<div class="ms-2">
+													<h6 class="mb-0 font-14">#U-{{ $user->id }}</h6>
+												</div>
+											</div>
+										</td>
+										<td>
+                                            <img width='50' src="{{ $user->image ? asset('storage/' . $user->image->path) : asset('storage/placeholders/user_placeholder.jpg') }}" alt="">    
+                                        </td>
+                                        <td>{{ $user->name }} </td>
+                                        <td>{{ $user->email }} </td>
+                                        <td>{{ $user->role->name }}</td>
+                                        <td>
+                                            <a class='btn btn-primary btn-sm' href="{{ route('admin.users.show', $user) }}">Related Posts</a>
+                                        </td>
+                                        <td>{{ $user->created_at->diffForHumans() }}</td>
+                                        <td>
+											<div class="d-flex order-actions">
+												<a href="{{ route('admin.users.edit', $user) }}" class=""><i class='bx bxs-edit'></i></a>
+												<a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $user->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                                <form method='post' action="{{ route('admin.users.destroy', $user) }}" id='delete_form_{{ $user->id }}'>@csrf @method('DELETE')</form>
+                                            </div>
+										</td>
+									</tr>
+                                    @endforeach
+								</tbody>
+							</table>
+						</div>
+
+                        <div class='mt-4'>
+                        {{ $users->links() }}
+                        </div>
+
+					</div>
+				</div>
+
+
+			</div>
+		</div>
+		<!--end page wrapper -->
+		@endsection
+
+
+    @section("script")
+
+    <script>
+        $(document).ready(function () {
+        
+            setTimeout(() => {
+                $(".general-message").fadeOut();
+            }, 5000);
+        });
+    </script>
+    @endsection 
+```
+
+`resources/views/admin_dashboard/users/show.blade.php` を新規作成し編集
+
+```html
+@extends("admin_dashboard.layouts.app")
+
+@section("wrapper")
+<!--start page wrapper -->
+<div class="page-wrapper">
+    <div class="page-content">
+        <!--breadcrumb-->
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">{{ $user->name }} Posts</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">User Posts</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        <!--end breadcrumb-->
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-lg-flex align-items-center mb-4 gap-3">
+                    <div class="position-relative">
+                        <input type="text" class="form-control ps-5 radius-30" placeholder="Search Order"> <span class="position-absolute top-50 product-show translate-middle-y"><i class="bx bx-search"></i></span>
+                    </div>
+                    <div class="ms-auto"><a href="{{ route('admin.posts.create') }}" class="btn btn-primary radius-30 mt-2 mt-lg-0"><i class="bx bxs-plus-square"></i>Add New Post</a></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Post#</th>
+                                <th>Post Title</th>
+                                <th>Post Excerpt</th>
+                                <th>Category</th>
+                                <th>Created at</th>
+                                <th>Status</th>
+                                <th>Views</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($user->posts as $post)
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <input class="form-check-input me-3" type="checkbox" value="" aria-label="...">
+                                        </div>
+                                        <div class="ms-2">
+                                            <h6 class="mb-0 font-14">#P-{{ $post->id }}</h6>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $post->title }} </td>
+
+                                <td>{{ $post->excerpt }}</td>
+                                <td>{{ $post->category->name }}</td>
+                                <td>{{ $post->created_at->diffForHumans() }}</td>
+
+
+                                <td>
+                                    <div class="badge rounded-pill @if($post->status === 'published') {{ 'text-info bg-light-info' }} @elseif($post->status === 'draft') {{ 'text-warning bg-light-warning' }} @else {{ 'text-danger bg-light-danger' }} @endif p-2 text-uppercase px-3"><i class='bx bxs-circle align-middle me-1'></i>{{ $post->status }}</div>
+                                </td>
+
+                                <td>{{ $post->views }}</td>
+
+                                <td>
+                                    <div class="d-flex order-actions">
+                                        <a href="{{ route('admin.posts.edit', $post) }}" class=""><i class='bx bxs-edit'></i></a>
+                                        <a href="#" onclick="event.preventDefault(); document.getElementById('delete_form_{{ $post->id }}').submit();" class="ms-3"><i class='bx bxs-trash'></i></a>
+
+                                        <form method='post' action="{{ route('admin.posts.destroy', $post) }}" id='delete_form_{{ $post->id }}'>@csrf @method('DELETE')</form>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<!--end page wrapper -->
+@endsection
+
+
+@section("script")
+
+<script>
+    $(document).ready(function () {
+    
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+    });
+</script>
+@endsection 
+```
+
+`routes/web.php` を編集
+
+```diff
+    // ...
+
+    // Admin Dashboard Routes
+
+    Route::prefix('admin')->name('admin.')->middleware(['auth', 'check_permissions'])->group(function () {
+
+        Route::get('/', [DashboardController::class, 'index'])
+            ->name('index');
+
+        Route::prefix('/posts')
+            ->controller(AdminPostsController::class)
+            ->name('posts.')
+            ->group(function () {
+                Route::get('', 'index')->name('index');
+                Route::get('create', 'create')->name('create');
+                Route::post('', 'store')->name('store');
+                Route::get('{post}', 'show')->name('show');
+                Route::get('{post}/edit', 'edit')->name('edit');
+                Route::put('{post}', 'update')->name('update');
+                Route::delete('{post}', 'destroy')->name('destroy');
+            });
+
+        Route::prefix('/categories')
+            ->controller(AdminCategoriesController::class)
+            ->name('categories.')
+            ->group(function () {
+                Route::get('', 'index')->name('index');
+                Route::get('create', 'create')->name('create');
+                Route::post('', 'store')->name('store');
+                Route::get('{category}', 'show')->name('show');
+                Route::get('{category}/edit', 'edit')->name('edit');
+                Route::put('{category}', 'update')->name('update');
+                Route::delete('{category}', 'destroy')->name('destroy');
+            });
+
+        Route::prefix('/tags')
+            ->controller(AdminTagsController::class)
+            ->name('tags.')
+            ->group(function () {
+                Route::get('', 'index')->name('index');
+                Route::get('{category}', 'show')->name('show');
+                Route::delete('{category}', 'destroy')->name('destroy');
+            });
+
+        Route::prefix('/comments')
+            ->controller(AdminCommentsController::class)
+            ->name('comments.')
+            ->group(function () {
+                Route::get('', 'index')->name('index');
+                Route::get('create', 'create')->name('create');
+                Route::post('', 'store')->name('store');
+                Route::get('{comments}/edit', 'edit')->name('edit');
+                Route::put('{comments}', 'update')->name('update');
+                Route::delete('{comments}', 'destroy')->name('destroy');
+            });
+
+        Route::prefix('/roles')
+            ->controller(AdminCommentsController::class)
+            ->name('roles.')
+            ->group(function () {
+                Route::get('', 'index')->name('index');
+                Route::get('create', 'create')->name('create');
+                Route::post('', 'store')->name('store');
+                Route::get('{role}/edit', 'edit')->name('edit');
+                Route::put('{role}', 'update')->name('update');
+                Route::delete('{role}', 'destroy')->name('destroy');
+            });
+
++       Route::prefix('/users')
++           ->controller(AdminUsersController::class)
++           ->name('users.')
++           ->group(function () {
++               Route::get('', 'index')->name('index');
++               Route::get('create', 'create')->name('create');
++               Route::post('', 'store')->name('store');
++               Route::get('{user}', 'show')->name('show');
++               Route::get('{user}/edit', 'edit')->name('edit');
++               Route::put('{user}', 'update')->name('update');
++               Route::delete('{user}', 'destroy')->name('destroy');
++           });
+    });
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
