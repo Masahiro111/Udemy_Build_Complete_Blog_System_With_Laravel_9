@@ -6901,7 +6901,7 @@ class AdminUsersController extends Controller
 
     // Admin Dashboard Routes
 
-    Route::prefix('admin')->name('admin.')->middleware(['auth', 'check_permissions'])->group(function () {
++   Route::prefix('admin')->name('admin.')->middleware(['auth', 'check_permissions'])->group(function () {
 
         Route::get('/', [DashboardController::class, 'index'])
             ->name('index');
@@ -6981,6 +6981,23 @@ class AdminUsersController extends Controller
 
 ```
 
+`app/Http/Controllers/AdminControllers/AdminUsersController.php` を修正
+
+```diff
+    // ...
+    
+    {
+        if($user->id === auth()->id())
+            return redirect()->back()->with('error', 'You can not delete your self.');
+
++       User::whereHas('role', function($query){
++           $query->where('name', 'admin');
++       })->first()->posts()->saveMany( $user->posts );
+
+        $user->delete();
+        return redirect()->route('admin.users.index')->with('success', 'User has been deleted.');
+    }
+```
 
 
 
