@@ -7181,9 +7181,594 @@ class AdminContactsController extends Controller
     });
 ```
 
+## About ページを動的にアップデート
+
+`app/Http/Controllers/AdminControllers/AdminPostsController.php` を更新
+
+```diff
+   private $rules = [
+        'title' => 'required|max:200',
+        'slug' => 'required|max:200',
+-       'excerpt' => 'required|max:300',
++       'excerpt' => 'required|max:1000',
+        'category_id' => 'required|numeric',
+-       'thumbnail' => 'required|file|mimes:jpg,png,webp,svg,jpeg|dimensions:max_width=300,max_height=227',
++       'thumbnail' => 'required|file|mimes:jpg,png,webp,svg,jpeg',
+        'body' => 'required',
+    ];
+
+    public function index()
+    {
+        return view('admin_dashboard.posts.index', [
+-           'posts' => Post::with('category')->get(),
++           'posts' => Post::with('category')->orderBy('id', 'DESC')->get(),
+        ]);
+    }
+```
+
+About ページを動的に更新するためのコントローラーを作成
+
+```
+php artisan make:controller AdminControllers/AdminSettingController
+```
+
+作成されたファイルを編集
+
+```php
+<?php
+
+namespace App\Http\Controllers\AdminControllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+use App\Models\Setting;
+
+class AdminSettingController extends Controller
+{
+    public function edit()
+    {
+        return view('admin_dashboard.about.edit', [
+            'setting' => Setting::find(1)
+        ]);
+    }
+
+    public function update()
+    {
+        $validated = request()->validate([
+            'about_first_text' => 'required|min:50,max:500',
+            'about_second_text' => 'required|min:50,max:500',
+            'about_our_vision' => 'required',
+            'about_our_mission' => 'required',
+            'about_services' => 'required',
+            'about_first_image' => 'nullable|image',
+            'about_second_image' => 'nullable|image', 
+        ]);
+
+        if(request()->has('about_first_image'))
+        {
+            $about_first_image = request()->file('about_first_image');
+            $path = $about_first_image->store('setting', 'public');
+            $validated['about_first_image'] = $path;
+        }
+
+        if(request()->has('about_second_image'))
+        {
+            $about_second_image = request()->file('about_second_image');
+            $path = $about_second_image->store('setting', 'public');
+            $validated['about_second_image'] = $path;
+        }
+
+        Setting::find(1)->update($validated);
+        return redirect()->route('admin.setting.edit')->with('success', 'Setting has been Updated.');
+    }
+}
+```
+
+`app/Http/Controllers/HomeController.php` を編集
+
+```diff
+    // ...
+    
+    class HomeController extends Controller
+    {
+        public function index()
+        {
+-           $posts = Post::withCount('comments')->paginate(10);
++           $posts = Post::latest()->withCount('comments')->paginate(10);
+
+            $recent_posts = Post::latest()->take(5)->get();
+
+            // ...
+        }
+    }
+```
+
+`Setting` モデルとマイグレーションファイル及びファクトリークラスを作成
+
+```
+php artisan make:model Setting -mf
+```
+
+作成した `app/Models/Setting.php` モデルを編集
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Setting extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'about_first_text',
+        'about_second_text',
+        'about_first_image',
+        'about_second_image',
+        'about_our_vision',
+        'about_our_mission',
+        'about_services',
+    ];
+}
+```
+
+作成された `database/factories/SettingFactory.php` を編集
+
+```php
+<?php
+
+namespace Database\Factories;
+
+use App\Models\Setting;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class SettingFactory extends Factory
+{
+    /**
+     * The name of the factory's corresponding model.
+     *
+     * @var string
+     */
+    protected $model = Setting::class;
+
+    public function definition()
+    {
+        return [
+            'about_first_text' => $this->faker->paragraph(),
+            'about_second_text' => $this->faker->paragraph(),
+            'about_first_image' => 'setting/about-img-1.jpg',
+            'about_second_image' => 'setting/about-img-2.jpg',
+            'about_our_vision' => $this->faker->paragraph(),
+            'about_our_mission' => $this->faker->paragraph(),
+            'about_services' => $this->faker->paragraph(),
+        ];
+    }
+}
+```
+
+`app/Providers/AppServiceProvider.php` を編集
+
+```diff
+    //
+
+    class AppServiceProvider extends ServiceProvider
+    {
+        public function boot()
+        {
+            Paginator::useBootstrap();
+
+            $categories = Category::withCount('posts')->orderBy('posts_count', 'DESC')->take(10)->get();
+            View::share('navbar_categories', $categories);
+
+-           $setting = Setting::find(1);
++            View::share('setting', $setting);
+        }
+    }
+```
+
+作成された `database/migrations/2021_11_23_192010_create_settings_table.php` を編集
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+class CreateSettingsTable extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('settings', function (Blueprint $table) {
+            $table->id();
+            $table->text('about_first_text');
+            $table->text('about_second_text');
+            $table->string('about_first_image');
+            $table->string('about_second_image');
+            $table->text('about_our_vision');
+            $table->text('about_our_mission');
+            $table->text('about_services');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('settings');
+    }
+}
+```
+
+`database/seeders/DatabaseSeeder.php` を編集
+
+```diff
+    // ...
+
+    class DatabaseSeeder extends Seeder
+    {
+        public function run()
+        {
+            // ...
+
++           \App\Models\Setting::factory(1)->create();
+        }
+    }
+```
+
+`resources/views/about.blade.php` を編集
+
+```diff
+    @extends('main_layouts.master')
+
+    @section('title', 'MyBlog | About')
+    
+    @section('content')
+            <div id="colorlib-counter" class="colorlib-counters">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="about-desc">
+-                               <div class="about-img-1 animate-box" style="background-image: url(blog_template/images/about-img-2.jpg);"></div>
+-                               <div class="about-img-2 animate-box" style="background-image: url(blog_template/images/about-img-1.jpg);"></div>
++                              <div class="about-img-1 animate-box" style="background-image: url({{ asset('storage/' . $setting->about_first_image) }})"></div>
++                              <div class="about-img-2 animate-box" style="background-image: url({{ asset('storage/' . $setting->about_second_image) }})"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="row">
+                                <div class="col-md-12 colorlib-heading animate-box">
+                                    <h1 class="heading-big">Who are we</h1>
+                                    <h2>Who are we</h2>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12 animate-box">
+-                                   <p><strong>Even the all-powerful Pointing has no control about the blind texts</strong></p>
+-                                   <p>Even the all-powerful Pointing has no control about the blind texts it is an almost unorthographic life One day however a small line of blind text by the name of Lorem Ipsum decided to leave for the far World of Grammar.</p>
++                                   <p>{{ $setting->about_first_text }}</p>
+                                </div>
+                                <div class="col-md-6 col-xs-6 animate-box">
+                                    <div class="counter-entry">
+
+                    // ...
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h3>Knowledge online learning center</h3>
+-                          <p>On her way she met a copy. The copy warned the Little Blind Text, that where it came from it would have been rewritten a thousand times and everything that was left from its origin would be the word "and" and the Little Blind Text should turn around and return to its own, safe country. But nothing the copy said could convince her and so it didn’t take long until a few insidious Copy Writers ambushed her, made her drunk with Longe and Parole and dragged her into their agency, where they abused her for their.</p>
++                           <p>{{ $setting->about_second_text }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="fancy-collapse-panel">
+                            <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+                            <div class="panel panel-default">
+                                <div class="panel-heading" role="tab" id="headingOne">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="true" aria-controls="collapseOne">Our Mission
+                                        </a>
+                                    </h4>
+                                </div>
+                                <div id="collapseOne" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingOne">
+                                    <div class="panel-body">
+                                        <div class="row">
+-                                           <div class="col-md-6">
+-                                                   <p>Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts. </p>
+-                                               </div>
+-                                               <div class="col-md-6">
+-                                                   <p>Separated they live in Bookmarksgrove right at the coast of the Semantics, a large language ocean.</p>
+-                                               </div>
+-                                           </div>
++                                          {!! $setting->about_our_mission !!}
++                                       </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="panel panel-default">
+                                <div class="panel-heading" role="tab" id="headingTwo">
+                                    <h4 class="panel-title">
+                                        <a class="collapsed" data-toggle="collapse" data-parent="#accordion" href="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">Our Vision
+                                        </a>
+                                    </h4>
+                                </div>
+                                <div id="collapseTwo" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTwo">
+                                    <div class="panel-body">
+-                                       <p>Far far away, behind the word <strong>mountains</strong>, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast of the Semantics, a large language ocean.</p>
+-                                       <ul>
+-                                           <li>Separated they live in Bookmarksgrove right</li>
+-                                           <li>Separated they live in Bookmarksgrove right</li>
+-                                       </ul>
++                                   {!! $setting->about_our_vision !!}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="panel panel-default">
+                                <div class="panel-heading" role="tab" id="headingThree">
+                                    <h4 class="panel-title">
+                                        <a class="collapsed" data-toggle="collapse" data-parent="#accordion" href="#collapseThree" aria-expanded="false" aria-controls="collapseThree">Services
+                                        </a>
+                                    </h4>
+                                </div>
+                                <div id="collapseThree" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingThree">
+-                                   <div class="panel-body">
+-                                       <p>Far far away, behind the word <strong>mountains</strong>, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast of the Semantics, a large language ocean.</p>	
+-                                   </div>
++                                   {!! $setting->about_services !!}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    @endsection
+```
+
+`resources/views/admin_dashboard/about/edit.blade.php` を新規作成し編集
+
+```php
+@extends("admin_dashboard.layouts.app")
+
+@section("style")
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/5.10.0/tinymce.min.js" integrity="sha512-XNYSOn0laKYg55QGFv1r3sIlQWCAyNKjCa+XXF5uliZH+8ohn327Ewr2bpEnssV9Zw3pB3pmVvPQNrnCTRZtCg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+@endsection
 
 
+    @section("wrapper")
+    <!--start page wrapper -->
+    <div class="page-wrapper">
+        <div class="page-content">
+            <!--breadcrumb-->
+            <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+                <div class="breadcrumb-title pe-3">About</div>
+                <div class="ps-3">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0 p-0">
+                            <li class="breadcrumb-item"><a href="{{ route('admin.index') }}"><i class="bx bx-home-alt"></i></a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">About Page</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+            <!--end breadcrumb-->
+
+            <div class="card">
+                <div class="card-body p-4">
+                    <h5 class="card-title">Edit About Page</h5>
+                    <hr/>
+
+                    <form action="{{ route('admin.setting.update') }}" method='post' enctype='multipart/form-data'>
+                        @csrf
+
+                        <div class="form-body mt-4">
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <div class="border border-3 p-4 rounded">
+
+                                        <div class="mb-3">
+                                            <label for="about_first_text" class="form-label">Top Text</label>
+                                            <textarea name='about_first_text' class="form-control" id="about_first_text">{{ $setting->about_first_text }}</textarea>
+
+                                            @error('about_first_text')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="about_second_text" class="form-label">Bottom Text</label>
+                                            <textarea name='about_second_text' class="form-control" id="about_second_text">{{ $setting->about_second_text }}</textarea>
+
+                                            @error('about_second_text')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class='row'>
+                                            <div class='col-md-8'>
+                                                <div class="mb-3">
+                                                    <label for="about_first_image" class="form-label">First Image</label>
+                                                    <input name='about_first_image' type='file' class="form-control" id="about_first_image">
+
+                                                    @error('about_first_image')
+                                                        <p class='text-danger'>{{ $message }}</p>
+                                                    @enderror
+                                                </div>
+                                            </div>
+                                            <div class='col-md-4'>
+                                                <div class='user-image p-2'>
+                                                    <img class='img-fluid img-thumbnail' src='{{ asset('storage/' . $setting->about_first_image) }}' >
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class='row'>
+                                            <div class='col-md-8'>
+                                                <div class="mb-3">
+                                                    <label for="about_second_image" class="form-label">Second Image</label>
+                                                    <input name='about_second_image' type='file' class="form-control" id="about_second_image">
+
+                                                    @error('about_second_image')
+                                                        <p class='text-danger'>{{ $message }}</p>
+                                                    @enderror
+                                                </div>
+                                            </div>
+                                            <div class='col-md-4'>
+                                                <div class='user-image p-2'>
+                                                    <img class='img-fluid img-thumbnail' src='{{ asset('storage/' . $setting->about_second_image) }}' >
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="about_our_mission" class="form-label">About Our Mission</label>
+                                            <textarea name='about_our_mission'  id='about_our_mission' class="form-control" id="our_mission" rows="3">{{ old("about_our_mission", $setting->about_our_mission) }}</textarea>
+
+                                            @error('about_our_mission')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="about_our_vision" class="form-label">About Our Vision</label>
+                                            <textarea name='about_our_vision'  id='about_our_vision' class="form-control" rows="3">{{ old("about_our_vision", $setting->about_our_vision) }}</textarea>
+
+                                            @error('about_our_vision')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
 
 
+                                        <div class="mb-3">
+                                            <label for="about_services" class="form-label">About Services</label>
+                                            <textarea name='about_services'  id='about_services' class="form-control" rows="3">{{ old("about_services", $setting->about_services) }}</textarea>
+
+                                            @error('about_services')
+                                                <p class='text-danger'>{{ $message }}</p>
+                                            @enderror
+                                        </div>
 
 
+                                        <button class='btn btn-primary' type='submit'>Update</button>
+
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+    <!--end page wrapper -->
+    @endsection
+
+@section("script")
+<script>
+    $(document).ready(function () {
+    
+        setTimeout(() => {
+            $(".general-message").fadeOut();
+        }, 5000);
+        let initTinyMCE = (id) => {
+            tinymce.init({
+                selector: '#'+id,
+                plugins: 'advlist autolink lists link charmap print preview hr anchor pagebreak',
+                toolbar_mode: 'floating',
+                height: '300',
+                toolbar: 'insertfile undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image code | rtl ltr',
+                toolbar_mode: 'floating',
+            });
+        }
+        initTinyMCE('about_our_mission');
+        initTinyMCE('about_our_vision');
+        initTinyMCE('about_services');
+    });
+</script>
+@endsection 
+```
+
+`resources/views/admin_dashboard/layouts/nav.blade.php` を編集
+
+```diff
+                    // ...
+
+                    </a>
+                </li>
+
++               <li>
++                   <a href="{{ route('admin.setting.edit') }}">
++                   <div class="parent-icon"><i class='bx bx-info-square'></i></div>
++                       <div class="menu-title">Setting</div>
++                   </a>
++               </li>
++
++               <hr>
++
++               <li>
++                   <a target='_blank' href="{{ route('home') }}">
++                   <div class="parent-icon"><i class='bx bx-pointer'></i></div>
++                       <div class="menu-title">Visit Site</div>
++                   </a>
++               </li>
+
+            </ul>
+            <!--end navigation-->
+```
+
+`resources/views/components/blog/side-recent-posts.blade.php` を編集
+
+```diff
+                // ...
+                {{ \Str::limit( $recent_post->title, 20) }}
+                </a>
+            </h2>
+-           <p>{{ $recent_post->excerpt }}</p>
++           <p>{{ \Str::limit($recent_post->excerpt, 50) }}</p>
+        </div>
+    </div>
+    @endforeach
+```
+
+`routes/web.php`
+
+```diff
+    // ...
+
+    // Admin Dashboard Routes
+    Route::name('admin.')->prefix('admin')->middleware(['auth', 'check_permissions'])->group(function(){
+        Route::get('/', [DashboardController::class, 'index'])->name('index');
+        Route::post('upload_tinymce_image', [TinyMCEController::class, 'upload_tinymce_image'])->name('upload_tinymce_image');
+        Route::resource('posts', AdminPostsController::class);
+        Route::resource('categories', AdminCategoriesController::class);
+        Route::resource('tags', AdminTagsController::class)->only(['index', 'show', 'destroy']);
+        Route::resource('comments', AdminCommentsController::class)->except('show');
+        Route::resource('roles', AdminRolesController::class)->except('show');
+        Route::resource('users', AdminUsersController::class);
+
+        Route::get('contacts', [AdminContactsController::class, 'index'])->name('contacts');
+        Route::delete('contacts/{contact}', [AdminContactsController::class, 'destroy'])->name('contacts.destroy');
+
++       Route::get('about', [AdminSettingController::class, 'edit'])->name('setting.edit');
++       Route::post('about', [AdminSettingController::class, 'update'])->name('setting.update');
+    });
+```
