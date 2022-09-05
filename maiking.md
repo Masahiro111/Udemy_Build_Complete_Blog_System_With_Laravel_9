@@ -7804,3 +7804,367 @@ class CreateSettingsTable extends Migration
         }
     }
 ```
+
+## ニュースレターの作成
+
+`app/Http/Controllers/AdminControllers/AdminPostsController.php` を編集
+
+```diff
+    // ...
+
+    public function update(Request $request, Post $post)
+    {
+        $this->rules['thumbnail'] = 'nullable|file|mimes:jpg,png,webp,svg,jpeg|dimensions:max_width=800,max_height=300';
+        $validated = $request->validate($this->rules);
+
++       $validated['approved'] = $request->input('approved') !== null;
+
+        $post->update($validated);
+
+        if($request->has('thumbnail'))
+
+        // ...
+
+    }
+```
+
+`app/Http/Controllers/HomeController.php` を編集
+
+```diff
+    public function index()
+    {
+-       $posts = Post::latest()->withCount('comments')->paginate(10);
++       $posts = Post::latest()
++       ->approved()
++       // ->where('approved', 1)
++       ->withCount('comments')->paginate(10);
+
+        $recent_posts = Post::latest()->take(5)->get();
+
+        // ...
+    }
+```
+
+ニュースレター用のコントローラーを作成。以下のコマンドを入力
+
+```
+php artisan make:controller NewsletterController
+```
+
+作成されたファイルを編集
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Http\Requests\NewsletterRequests\NewsletterRequest;
+use App\Models\Newsletter;
+
+class NewsletterController extends Controller
+{
+    public function store(NewsletterRequest $request)
+    {
+        return Newsletter::store( $request );
+    }
+}
+```
+
+フォームリクエストの作成。以下のコマンドを入力
+
+```
+php artisan make:request NewsLetterRequests/NewsLetterRequest
+```
+
+作成された `app\Http\Requests\NewsLetterRequests\NewsLetterRequest.php` を編集
+
+```php
+<?php
+
+namespace App\Http\Requests\NewsletterRequests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class NewsletterRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     *
+     * @return bool
+     */
+    public function authorize()
+    {
+        return true;
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, mixed>
+     */
+    public function rules()
+    {
+        return [
+            'email'=>'required|email',
+        ];
+    }
+}
+```
+
+Newsletter モデルの作成。以下のコマンドを入力
+
+```
+php artisan make:model Newsletter -m
+```
+
+作成された `app/Models/Newsletter.php` ファイルを編集
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Newsletter extends Model
+{
+    use HasFactory;
+    protected $table = "newsletter";
+    protected $fillable = ['email'];
+
+    public static function store($request)
+    {
+        self::create( $request->all() );
+
+        $mailchimp = new \MailchimpMarketing\ApiClient();
+
+        $mailchimp->setConfig([
+            'apiKey' => config('services.mailchimp.apikey'),
+            'server' => config('services.mailchimp.prefix') 
+        ]);
+
+        $list_id='298ae56b23';
+
+        try {
+            $response = $mailchimp->lists->addListMember($list_id, [
+                "email_address" => $request->input('email'),
+                "status" => "subscribed"
+            ]);
+            return response()->json([
+                'message' => 'Thank you for your subscription'
+            ], 200);
+        } catch (\MailchimpMarketing\ApiException $e) {
+            return response()->json([
+                'message' => 'Invalid Email Address'
+            ], 500);
+        }
+    }
+}
+```
+
+マイグレーションファイル `database/migrations/create_newsletter_migration.php` も編集
+
+```diff
+    // ...
+
+    return new class extends Migration
+    {
+        /**
+        * Run the migrations.
+        *
+        * @return void
+        */
+        public function up()
+        {
+            Schema::create('posts', function (Blueprint $table) {
+                $table->id();
++               $table->string('email');
+                $table->timestamps();
+            });
+        }
+
+        // ...
+    }
+```
+
+`database/migrations/create_posts_table.php` を編集
+
+```diff
+    // ...
+
+    class CreatePostsTable extends Migration
+    {
+        public function up()
+        {
+            Schema::create('posts', function (Blueprint $table) {
+                $table->id();
+                $table->string('title');
+                $table->string('slug')->unique();
+                $table->string('excerpt');
+                $table->text('body');
+                $table->foreignId('user_id');
+                $table->foreignId('category_id');
+
+                $table->integer('views')->default(0);
+-               $table->string('status')->default('published');
++               $table->boolean('approved')->default(true);
+
+                $table->timestamps();
+            });
+        }
+
+        // ...
+    }
+```
+
+`public/css/mystyle.css` を編集
+
+```diff
+    // ...
+
++   .subscribe-error
++   {
++       background: #931d1d;
++       border-color: #931d1d;
++   }
++
++   .subscribe-success
++   {
++       background: #15c8ce;
++       border-color: #15c8ce;
++   }
+```
+
+`resources/views/admin_dashboard/posts/edit.blade.php` を編集
+
+```diff
+
++           <div class="mb-3">
++               <div class="form-check form-switch">
++                   <input name='approved' {{ $post->approved ? 'checked' : '' }} class="form-check-input" type="checkbox" id="flexSwitchCheckChecked">
++                   <label class="form-check-label {{ $post->approved ? 'text-success' : 'text-warning' }}" for="flexSwitchCheckChecked">
++                       {{ $post->approved ? 'Approved' : 'Not approved' }}
++                   </label>
++               </div>
++           </div>
+
+            <button class='btn btn-primary' type='submit'>Update Post</button>
+            <a 
+            class='btn btn-danger'
+            onclick="event.preventDefault();document.getElementById('delete_post_{{ $post->id }}').submit()"
+            href="#">Delete Post</a>
+            
+            
+        </div>
+    </div>
+```
+
+`resources/views/main_layouts/master.blade.php` を編集
+
+```diff
+    <meta name="description" content="" />
+    <meta name="keywords" content="" />
+    <meta name="author" content="" />
++   <meta name="_token" content="{{ csrf_token() }}" />
+
+  <!-- Facebook and Twitter integration -->
+    <meta property="og:title" content=""/>
+
+        // ...
+
+        @yield('content')
+
+
+-       <div id="colorlib-subscribe" class="subs-img" style="background-image: url({{ asset('blog_template/images/img_bg_2.jpg') }});" data-stellar-background-ratio="0.5">
++       <div id="colorlib-subscribe" class="subs-img" style="background-image: url({{ asset('blog_template/images/img_bg_2.jpg') }});" data-stellar-background-ratio="0.5">
+            <div class="overlay"></div>
+            <div class="container">
+                <div class="row">
+
+                    // ...
+
+                            <form class="form-inline qbstp-header-subscribe">
+                                <div class="col-three-forth">
+                                    <div class="form-group">
+-                                       <input type="text" class="form-control" id="email" placeholder="Enter your email">
++                                       <input name='subscribe-email' type="email" required class="form-control" id="email" placeholder="Enter your email">
+                                    </div>
+                                </div>
+                                <div class="col-one-third">
+                                    <div class="form-group">
+-                                       <button type="submit" class="btn btn-primary">Subscribe Now</button>
++                                       <button id='subscribe-btn' type="submit" class="btn btn-primary">Subscribe Now</button>
+                                    </div>
+                                </div>
+                            </form>
+
+    // ...
+
+-   <script src="{{ asset('blog_template/js/main.js') }}"></script>
+
++   <script src="{{ asset('js/functions.js') }}"></script>
+
++   <script>
++       $(function(){
++           function isEmail(email) {
++               var regex = /^([a-zA-Z0-9_.+-])+\@(([a-zA-Z0-9-])+\.)+([a-zA-Z0-9]{2,4})+$/;
++               return regex.test(email);
++           }
++           $(document).on("click", "#subscribe-btn", (e) => {
++               e.preventDefault();
++               let _this = $(e.target);
++               
++               let email = _this.parents("form").find("input[name='subscribe-email']").val();
++               if( ! isEmail( email ) )
++               {
++                   $("body").append("<div class='global-message alert alert-danger subscribe-error'>This email is not valid.</div>");
++               }
++               else 
++               {
++                   // send this email to subscribe 
++                   // 1- send an ajax and store this email
++                   let formData = new FormData();
++                   let _token = $("meta[name='_token']").attr("content");
++                   formData.append('_token', _token);
++                   formData.append('email', email);
++                   $.ajax({
++                       url: "{{ route('newsletter_store') }}",
++                       type: "POST",
++                       dataType: "JSON",
++                       processData: false,
++                       contentType: false,
++                       data:formData,
++                       success: (respond) => {
++                           let message = respond.message;
++                           $("body").append("<div class='global-message alert alert-danger subscribe-success'>"+ message +"</div>");
++                           _this.parents("form").find("input[name='subscribe-email']").val('');
++                       },
++                       statusCode: {
++                           500: () => {
++                               $("body").append("<div class='global-message alert alert-danger subscribe-error'>Invalid Email Address</div>");
++                           }
++                       }
++                   });
++               }
++               setTimeout( () => {
++                   $(".global-message.subscribe-error, .global-message.subscribe-success").remove();
++               }, 5000 );
++           });
++       });
++   </script>
+    @yield('custom_js')
+
+    </body>
+```
+
+`routes/web.php` を編集
+
+```diff
+    Route::get('/tags/{tag:name}', [TagController::class, 'show'])->name('tags.show');
+
++  Route::post('newsletter', [NewsletterController::class, 'store'])->name('newsletter_store');
+
+    require __DIR__.'/auth.php';
+```
